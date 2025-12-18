@@ -196,7 +196,6 @@
     .phase-indicator.endurance-mode { color: #FFE66D; border: 1px solid #FFE66D33; }
     .phase-indicator.balanced-mode { color: #4ECDC4; border: 1px solid #4ECDC433; }
     .phase-indicator.exhausted { color: #FF6B6B; border: 1px solid #FF6B6B55; background-color: #1a0a0a; }
-    .tips-remaining { font-size: 9px; color: #888; margin-top: 4px; }
     
     .reserve-display {
       text-align: center;
@@ -289,7 +288,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 14px 20px;
+      padding: 14px 24px;
       background-color: #111;
       border-radius: 10px;
       border: 1px solid #222;
@@ -297,51 +296,20 @@
     }
     .swap-target-box.balanced { border-color: #4ECDC455; }
     .swap-target-box.endurance { border-color: #FFE66D55; }
-    .swap-target-box.locked-balanced { border-color: #4ECDC4; min-width: 180px; }
-    .swap-target-box.locked-endurance { border-color: #FFE66D; min-width: 180px; }
-    .swap-target-box.warning { border-color: #FF6B6B; background-color: #1a0a0a; min-width: 200px; }
-    .swap-target-box.zero-fuel { border-color: #FF6B6B; background-color: #2a0a0a; min-width: 220px; border-width: 2px; }
-    .swap-target-label { font-size: 9px; letter-spacing: 2px; color: #666; margin-bottom: 6px; }
+    .swap-target-box.locked-balanced { border-color: #4ECDC4; min-width: 160px; }
+    .swap-target-box.locked-endurance { border-color: #FFE66D; min-width: 160px; }
+    .swap-target-box.warning { border-color: #FF6B6B; background-color: #1a0a0a; min-width: 180px; }
+    .swap-target-box.zero-fuel { border-color: #FF6B6B; background-color: #2a0a0a; min-width: 200px; border-width: 2px; }
+    .swap-target-label { font-size: 9px; letter-spacing: 2px; color: #666; margin-bottom: 8px; }
     .swap-target-label.warning { color: #FF6B6B; font-weight: 700; }
     .swap-target-label.zero-fuel { color: #FF6B6B; font-weight: 700; font-size: 11px; }
-    .swap-target-value { font-size: 28px; font-weight: 700; }
+    .swap-target-value { font-size: 32px; font-weight: 700; }
     .swap-target-box.balanced .swap-target-value { color: #4ECDC4; }
     .swap-target-box.endurance .swap-target-value { color: #FFE66D; }
     .swap-target-box.locked-balanced .swap-target-value { color: #4ECDC4; }
     .swap-target-box.locked-endurance .swap-target-value { color: #FFE66D; }
     .swap-target-box.warning .swap-target-value { color: #FF6B6B; }
-    .swap-target-box.zero-fuel .swap-target-value { color: #FF6B6B; font-size: 32px; }
-    .swap-target-time { font-size: 12px; color: #888; margin-top: 4px; }
-    .swap-target-box.warning .swap-target-time { color: #FF6B6B88; }
-    .swap-target-box.zero-fuel .swap-target-time { color: #FF6B6B; font-weight: 700; }
-    
-    .gph-section {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 14px;
-      padding: 14px;
-      background-color: #0f1a1a;
-      border: 1px solid #4ECDC433;
-      border-radius: 10px;
-    }
-    .gph-section.visible { display: flex; }
-    .gph-label { font-size: 10px; letter-spacing: 2px; color: #4ECDC4; }
-    .gph-input-row { display: flex; align-items: center; gap: 8px; }
-    .gph-input {
-      width: 80px; height: 44px;
-      font-size: 22px; font-weight: 700;
-      text-align: center;
-      background-color: #1a1a1a;
-      border: 2px solid #4ECDC4;
-      border-radius: 8px;
-      color: #fff;
-      font-family: inherit;
-    }
-    .gph-input:focus { outline: none; }
-    .gph-unit { font-size: 12px; color: #666; }
-    .gph-hint { font-size: 9px; color: #555; }
+    .swap-target-box.zero-fuel .swap-target-value { color: #FF6B6B; font-size: 36px; }
     
     .input-section {
       display: flex;
@@ -496,9 +464,9 @@
       <div class="swap-count" id="swap-count">#1</div>
     </div>
 
-    <div class="phase-indicator" id="phase-indicator">MAINS PHASE<div class="tips-remaining hidden" id="tips-remaining"></div></div>
+    <div class="phase-indicator" id="phase-indicator">MAINS PHASE</div>
     
-    <div class="reserve-display" id="reserve-display">SAFETY RESERVE: 0.9 GAL</div>
+    <div class="reserve-display">SAFETY RESERVE: 0.9 GAL</div>
 
     <div class="tank-display">
       <div class="wing">
@@ -519,11 +487,9 @@
 
     <div class="info-display"><div class="info-box"><span class="info-label">LAST READING</span><span class="info-value" id="last-reading">--</span></div></div>
 
-    <div class="swap-targets" id="swap1-target"><div class="swap-target-box endurance"><span class="swap-target-label">SWAP AT</span><span class="swap-target-value">7.0</span><span class="swap-target-time">CLIMBOUT</span></div></div>
-    <div class="swap-targets hidden" id="swap2-targets"><div class="swap-target-box balanced"><span class="swap-target-label">BALANCED</span><span class="swap-target-value" id="balanced-value">--</span><span class="swap-target-time" id="balanced-time">--</span></div><div class="swap-target-box endurance"><span class="swap-target-label">ENDURANCE</span><span class="swap-target-value" id="endurance-value">--</span><span class="swap-target-time" id="endurance-time">--</span></div></div>
-    <div class="swap-targets hidden" id="swap3-target"><div class="swap-target-box" id="locked-mode-box"><span class="swap-target-label" id="locked-mode-label">SWAP AT</span><span class="swap-target-value" id="locked-mode-value">--</span><span class="swap-target-time" id="locked-mode-time">--</span></div></div>
-
-    <div class="gph-section" id="gph-section"><span class="gph-label">GPH REFERENCE</span><div class="gph-input-row"><input type="number" class="gph-input" id="gph-input" value="16.0" step="0.5" min="10" max="25"><span class="gph-unit">GAL/HR</span></div><span class="gph-hint">Enter cruise GPH after leaning</span></div>
+    <div class="swap-targets" id="swap1-target"><div class="swap-target-box endurance"><span class="swap-target-label">SWAP AT</span><span class="swap-target-value">7.0</span></div></div>
+    <div class="swap-targets hidden" id="swap2-targets"><div class="swap-target-box balanced"><span class="swap-target-label">BALANCED</span><span class="swap-target-value" id="balanced-value">--</span></div><div class="swap-target-box endurance"><span class="swap-target-label">ENDURANCE</span><span class="swap-target-value" id="endurance-value">--</span></div></div>
+    <div class="swap-targets hidden" id="swap3-target"><div class="swap-target-box" id="locked-mode-box"><span class="swap-target-label" id="locked-mode-label">SWAP AT</span><span class="swap-target-value" id="locked-mode-value">--</span></div></div>
 
     <div class="input-section"><label class="input-label">TOTALIZER USED</label><input type="number" step="0.1" class="input-field" id="totalizer-input" placeholder="0.0"><button class="log-btn" id="log-btn" onclick="logSwap()">LOG SWAP</button></div>
 
@@ -541,7 +507,7 @@
     const LOW_WARN = 2.0;
     const MAX_TIP_SWAPS = 4;
     const BAL_MIN = 7, BAL_MAX = 10;
-    const END_RES_MIN = 5, END_RES_MAX = 8;
+    const ENDURANCE_RESERVE = 6;  // Fixed reserve for endurance mode
     const TIP_BURN = 8;
     
     let state = {
@@ -553,7 +519,6 @@
       phase: 'mains',
       tipSwapCount: 0,
       fuelExhausted: false,
-      gph: 16.0,
       flightMode: null,
       swap2Targets: null
     };
@@ -651,7 +616,7 @@
     }
     
     function startFlight(presetKey) {
-      state = { preset: presetKey, customFuel: null, currentTank: 'lMain', swapLog: [], tankBurned: { lTip: 0, lMain: 0, rMain: 0, rTip: 0 }, phase: 'mains', tipSwapCount: 0, fuelExhausted: false, gph: 16.0, flightMode: null, swap2Targets: null };
+      state = { preset: presetKey, customFuel: null, currentTank: 'lMain', swapLog: [], tankBurned: { lTip: 0, lMain: 0, rMain: 0, rTip: 0 }, phase: 'mains', tipSwapCount: 0, fuelExhausted: false, flightMode: null, swap2Targets: null };
       saveState(); showFlightScreen();
     }
     
@@ -663,7 +628,7 @@
         rMain: Math.min(25, levels.rMain + getNum('af-rmain')),
         rTip: Math.min(17, levels.rTip + getNum('af-rtip'))
       };
-      state = { preset: 'custom', customFuel, currentTank: 'lMain', swapLog: [], tankBurned: { lTip: 0, lMain: 0, rMain: 0, rTip: 0 }, phase: 'mains', tipSwapCount: 0, fuelExhausted: false, gph: 16.0, flightMode: 'balanced', swap2Targets: null };
+      state = { preset: 'custom', customFuel, currentTank: 'lMain', swapLog: [], tankBurned: { lTip: 0, lMain: 0, rMain: 0, rTip: 0 }, phase: 'mains', tipSwapCount: 0, fuelExhausted: false, flightMode: 'balanced', swap2Targets: null };
       saveState(); showFlightScreen();
     }
     
@@ -678,7 +643,6 @@
     function showFlightScreen() {
       document.getElementById('start-screen').style.display = 'none';
       document.getElementById('flight-screen').style.display = 'block';
-      setVal('gph-input', state.gph);
       updateDisplay();
     }
     
@@ -701,7 +665,6 @@
     function getLastReading() { return state.swapLog.length ? state.swapLog[state.swapLog.length - 1].totalizer : null; }
     function mainsEmpty() { return getRemaining('lMain') <= SAFETY_RESERVE && getRemaining('rMain') <= SAFETY_RESERVE; }
     
-    // Count how many tanks still have usable fuel
     function countUsableTanks() {
       let count = 0;
       ['lTip', 'lMain', 'rMain', 'rTip'].forEach(t => {
@@ -710,7 +673,6 @@
       return count;
     }
     
-    // Check if current tank is the LAST tank with usable fuel
     function isLastTank() {
       if (getRemaining(state.currentTank) <= SAFETY_RESERVE) return false;
       return countUsableTanks() === 1;
@@ -724,7 +686,6 @@
         if (state.tipSwapCount >= MAX_TIP_SWAPS) return null;
         if (state.currentTank === 'lTip') return rt > SAFETY_RESERVE ? 'rTip' : (lt > SAFETY_RESERVE ? 'lTip' : null);
         if (state.currentTank === 'rTip') return lt > SAFETY_RESERVE ? 'lTip' : (rt > SAFETY_RESERVE ? 'rTip' : null);
-        // Coming from mains, pick the fuller tip
         return lt >= rt ? (lt > SAFETY_RESERVE ? 'lTip' : (rt > SAFETY_RESERVE ? 'rTip' : null)) 
                         : (rt > SAFETY_RESERVE ? 'rTip' : (lt > SAFETY_RESERVE ? 'lTip' : null));
       }
@@ -735,23 +696,15 @@
         return lm >= rm ? 'lMain' : 'rMain';
       }
       
-      // Mains empty, go to tips
       return lt >= rt ? (lt > SAFETY_RESERVE ? 'lTip' : (rt > SAFETY_RESERVE ? 'rTip' : null))
                       : (rt > SAFETY_RESERVE ? 'rTip' : (lt > SAFETY_RESERVE ? 'lTip' : null));
-    }
-    
-    function formatTime(h) {
-      if (h <= 0) return '--';
-      const hrs = Math.floor(h), mins = Math.round((h - hrs) * 60);
-      return hrs + ':' + mins.toString().padStart(2, '0');
     }
     
     function getNormalBurn() {
       if (state.phase === 'tips') return TIP_BURN;
       const mode = state.preset === 'custom' ? 'balanced' : state.flightMode;
       if (mode === 'endurance') {
-        let endRes = state.gph <= 13.5 ? END_RES_MIN : (state.gph >= 17 ? END_RES_MAX : END_RES_MIN + (state.gph - 13.5) / 3.5 * (END_RES_MAX - END_RES_MIN));
-        return getRemaining(state.currentTank) - endRes;
+        return getRemaining(state.currentTank) - ENDURANCE_RESERVE;
       }
       return Math.min(BAL_MAX, Math.max(BAL_MIN, getRemaining(state.currentTank) - SAFETY_RESERVE));
     }
@@ -779,13 +732,12 @@
       balBurn = Math.max(BAL_MIN, balBurn);
       if (balBurn > cur - SAFETY_RESERVE) balBurn = cur - SAFETY_RESERVE;
       
-      let endRes = state.gph <= 13.5 ? END_RES_MIN : (state.gph >= 17 ? END_RES_MAX : END_RES_MIN + (state.gph - 13.5) / 3.5 * (END_RES_MAX - END_RES_MIN));
-      let endBurn = Math.max(0, cur - endRes);
+      let endBurn = Math.max(0, cur - ENDURANCE_RESERVE);
       if (state.preset === 'custom') endBurn = Math.min(endBurn, BAL_MAX);
       
       return {
-        balanced: { target: last + balBurn, burn: balBurn, time: balBurn / state.gph },
-        endurance: { target: last + endBurn, burn: endBurn, time: endBurn / state.gph }
+        balanced: { target: last + balBurn, burn: balBurn },
+        endurance: { target: last + endBurn, burn: endBurn }
       };
     }
     
@@ -808,8 +760,6 @@
       state.tankBurned[state.currentTank] += burned;
       state.swapLog.push({ swapNumber: state.swapLog.length + 1, tank: tankLabel(state.currentTank), totalizer: reading, burned });
       
-      // Check if mains are empty and transition to tips
-      // Use else-if so the transition swap doesn't count as a tip swap
       if (state.phase === 'mains' && mainsEmpty()) { 
         state.phase = 'tips'; 
         state.tipSwapCount = 0; 
@@ -842,20 +792,16 @@
       setText('swap-count', '#' + (swapCount + 1));
       
       const phaseEl = document.getElementById('phase-indicator');
-      const tipsEl = document.getElementById('tips-remaining');
       if (phaseEl) {
         if (state.fuelExhausted) {
-          phaseEl.innerHTML = 'FUEL EXHAUSTED';
+          phaseEl.textContent = 'FUEL EXHAUSTED';
           phaseEl.className = 'phase-indicator exhausted';
-          tipsEl?.classList.add('hidden');
         } else if (state.phase === 'tips') {
-          phaseEl.innerHTML = 'TIPS PHASE';
+          phaseEl.textContent = 'TIPS PHASE';
           phaseEl.className = 'phase-indicator tips-phase';
-          if (tipsEl) { tipsEl.textContent = (MAX_TIP_SWAPS - state.tipSwapCount) + ' SWAPS LEFT'; tipsEl.classList.remove('hidden'); }
         } else {
-          phaseEl.innerHTML = mode ? 'MAINS • ' + mode.toUpperCase() : 'MAINS PHASE';
+          phaseEl.textContent = mode ? 'MAINS • ' + mode.toUpperCase() : 'MAINS PHASE';
           phaseEl.className = 'phase-indicator' + (mode ? ' ' + mode + '-mode' : '');
-          tipsEl?.classList.add('hidden');
         }
       }
       
@@ -870,56 +816,52 @@
       const s1 = document.getElementById('swap1-target');
       const s2 = document.getElementById('swap2-targets');
       const s3 = document.getElementById('swap3-target');
-      const gph = document.getElementById('gph-section');
       
       if (state.fuelExhausted) {
-        // Show final state
-        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden'); gph?.classList.remove('visible');
-        setTargetBox('locked', 'COMPLETE', '--', '--', 'balanced');
+        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden');
+        setTargetBox('locked', 'COMPLETE', '--', 'balanced');
       } else if (swapCount === 0 && !isCustom) {
-        s1?.classList.remove('hidden'); s2?.classList.add('hidden'); s3?.classList.add('hidden'); gph?.classList.remove('visible');
+        s1?.classList.remove('hidden'); s2?.classList.add('hidden'); s3?.classList.add('hidden');
       } else if (swapCount === 0 && isCustom) {
-        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden'); gph?.classList.add('visible');
+        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden');
         const burn = Math.min(BAL_MAX, getRemaining('lMain') - SAFETY_RESERVE);
-        if (lastBurn && lastTank && maxTarget) setZeroFuelTarget(maxTarget, getRemaining(state.currentTank) - SAFETY_RESERVE);
-        else if (lastBurn && maxTarget) setWarningTarget(maxTarget, getRemaining(state.currentTank) - SAFETY_RESERVE);
-        else setTargetBox('locked', 'BALANCED', burn.toFixed(1), formatTime(burn / state.gph), 'balanced');
+        if (lastBurn && lastTank && maxTarget) setZeroFuelTarget(maxTarget);
+        else if (lastBurn && maxTarget) setWarningTarget(maxTarget);
+        else setTargetBox('locked', 'BALANCED', burn.toFixed(1), 'balanced');
       } else if (swapCount === 1 && state.phase === 'mains' && !isCustom) {
-        s1?.classList.add('hidden'); s2?.classList.remove('hidden'); s3?.classList.add('hidden'); gph?.classList.add('visible');
+        s1?.classList.add('hidden'); s2?.classList.remove('hidden'); s3?.classList.add('hidden');
         const t = calcTargets();
         if (t.balanced && t.endurance) {
           state.swap2Targets = { balanced: t.balanced.target, endurance: t.endurance.target };
           saveState();
           setText('balanced-value', t.balanced.target.toFixed(1));
-          setText('balanced-time', formatTime(t.balanced.time));
           setText('endurance-value', t.endurance.target.toFixed(1));
-          setText('endurance-time', formatTime(t.endurance.time));
         }
       } else if (state.phase === 'tips') {
-        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden'); gph?.classList.remove('visible');
+        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden');
         const last = getLastReading();
         const available = getRemaining(state.currentTank) - SAFETY_RESERVE;
         
-        if (lastBurn && lastTank && maxTarget && last !== null) setZeroFuelTarget(maxTarget, available);
-        else if (lastBurn && maxTarget && last !== null) setWarningTarget(maxTarget, available);
+        if (lastBurn && lastTank && maxTarget && last !== null) setZeroFuelTarget(maxTarget);
+        else if (lastBurn && maxTarget && last !== null) setWarningTarget(maxTarget);
         else if (last !== null) {
           const burn = Math.min(TIP_BURN, available);
-          setTargetBox('locked', 'SWAP AT', (last + burn).toFixed(1), formatTime(burn / state.gph), 'balanced');
-        } else setTargetBox('locked', 'SWAP AT', '--', '--', 'balanced');
+          setTargetBox('locked', 'SWAP AT', (last + burn).toFixed(1), 'balanced');
+        } else setTargetBox('locked', 'SWAP AT', '--', 'balanced');
       } else if (mode && state.phase === 'mains') {
-        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden'); gph?.classList.add('visible');
+        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden');
         
-        if (lastBurn && lastTank && maxTarget) setZeroFuelTarget(maxTarget, getRemaining(state.currentTank) - SAFETY_RESERVE);
-        else if (lastBurn && maxTarget) setWarningTarget(maxTarget, getRemaining(state.currentTank) - SAFETY_RESERVE);
+        if (lastBurn && lastTank && maxTarget) setZeroFuelTarget(maxTarget);
+        else if (lastBurn && maxTarget) setWarningTarget(maxTarget);
         else {
           const t = calcTargets();
           const sel = mode === 'endurance' ? t.endurance : t.balanced;
-          if (sel) setTargetBox('locked', mode === 'endurance' ? 'ENDURANCE' : 'BALANCED', sel.target.toFixed(1), formatTime(sel.time), mode);
-          else setTargetBox('locked', 'SWAP AT', '--', '--', 'balanced');
+          if (sel) setTargetBox('locked', mode === 'endurance' ? 'ENDURANCE' : 'BALANCED', sel.target.toFixed(1), mode);
+          else setTargetBox('locked', 'SWAP AT', '--', 'balanced');
         }
       } else {
-        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden'); gph?.classList.remove('visible');
-        setTargetBox('locked', 'SWAP AT', '--', '--', 'balanced');
+        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden');
+        setTargetBox('locked', 'SWAP AT', '--', 'balanced');
       }
       
       const maxes = { lTip: 17, lMain: 25, rMain: 25, rTip: 17 };
@@ -956,37 +898,31 @@
       if (btn && inp) btn.disabled = state.fuelExhausted || !inp.value;
     }
     
-    function setTargetBox(prefix, label, value, time, modeClass) {
+    function setTargetBox(prefix, label, value, modeClass) {
       const box = document.getElementById(prefix + '-mode-box');
       const lbl = document.getElementById(prefix + '-mode-label');
       const val = document.getElementById(prefix + '-mode-value');
-      const tm = document.getElementById(prefix + '-mode-time');
       if (box) box.className = 'swap-target-box locked-' + modeClass;
       if (lbl) { lbl.textContent = label; lbl.className = 'swap-target-label'; }
       if (val) val.textContent = value;
-      if (tm) tm.textContent = time;
     }
     
-    function setWarningTarget(maxTarget, burn) {
+    function setWarningTarget(maxTarget) {
       const box = document.getElementById('locked-mode-box');
       const lbl = document.getElementById('locked-mode-label');
       const val = document.getElementById('locked-mode-value');
-      const tm = document.getElementById('locked-mode-time');
       if (box) box.className = 'swap-target-box warning';
       if (lbl) { lbl.textContent = '⚠ DO NOT EXCEED'; lbl.className = 'swap-target-label warning'; }
       if (val) val.textContent = maxTarget.toFixed(1);
-      if (tm) tm.textContent = formatTime(burn / state.gph);
     }
     
-    function setZeroFuelTarget(maxTarget, burn) {
+    function setZeroFuelTarget(maxTarget) {
       const box = document.getElementById('locked-mode-box');
       const lbl = document.getElementById('locked-mode-label');
       const val = document.getElementById('locked-mode-value');
-      const tm = document.getElementById('locked-mode-time');
       if (box) box.className = 'swap-target-box zero-fuel';
       if (lbl) { lbl.textContent = '🛑 ZERO FUEL'; lbl.className = 'swap-target-label zero-fuel'; }
       if (val) val.textContent = maxTarget.toFixed(1);
-      if (tm) tm.textContent = 'FINAL';
     }
     
     function setText(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
@@ -999,19 +935,13 @@
         if (btn) btn.disabled = state.fuelExhausted || !this.value;
       });
       
-      document.getElementById('gph-input')?.addEventListener('input', function() {
-        state.gph = Math.max(10, Math.min(25, parseFloat(this.value) || 16));
-        saveState();
-        updateDisplay();
-      });
-      
       ['af-ltip', 'af-lmain', 'af-rmain', 'af-rtip'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', updateAddFuelTotals);
       });
     }
     
     if ('serviceWorker' in navigator) {
-      const sw = `const C='n215c-v6';self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(clients.claim()));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>caches.open(C).then(c=>{c.put(e.request,res.clone());return res;}))).catch(()=>new Response('Offline'))));`;
+      const sw = `const C='n215c-v7';self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(clients.claim()));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>caches.open(C).then(c=>{c.put(e.request,res.clone());return res;}))).catch(()=>new Response('Offline'))));`;
       navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], {type:'application/javascript'}))).catch(()=>{});
     }
     
