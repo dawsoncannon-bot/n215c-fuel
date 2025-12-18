@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="N215C Fuel">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>N215C Fuel Tracker</title>
+  
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      min-height: 100vh;
+      background-color: #0a0a0a;
+      color: #fff;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      padding: 16px;
+      padding-top: max(16px, env(safe-area-inset-top));
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    
+    .hidden { display: none !important; }
+    
+    /* ===== START SCREEN ===== */
+    #start-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 85vh;
+      gap: 8px;
+    }
+    
+    .title { font-size: 48px; font-weight: 700; letter-spacing: 4px; color: #FFE66D; }
+    .subtitle { font-size: 14px; letter-spacing: 8px; color: #666; margin-bottom: 32px; }
+    
+    /* Resume Box */
+    .resume-box {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+      padding: 20px 24px;
+      background-color: #111;
+      border: 1px solid #FFE66D44;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 340px;
+    }
+    .resume-box.visible { display: flex; }
+    
+    .resume-title { font-size: 12px; letter-spacing: 2px; color: #FFE66D; }
+    .resume-info { font-size: 14px; color: #888; text-align: center; }
+    
+    .resume-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    
+    .resume-btn {
+      padding: 12px 18px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .resume-btn.primary { background-color: #FFE66D; border-color: #FFE66D; color: #000; }
+    .resume-btn.secondary { background-color: transparent; border-color: #4ECDC4; color: #4ECDC4; }
+    .resume-btn.tertiary { background-color: transparent; border-color: #444; color: #666; }
+    
+    /* Add Fuel Panel */
+    .add-fuel-panel {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+      width: 100%;
+      padding-top: 16px;
+      border-top: 1px solid #333;
+    }
+    .add-fuel-panel.visible { display: flex; }
+    
+    .add-fuel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    
+    .add-fuel-tank {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 4px;
+      background-color: #1a1a1a;
+      border-radius: 8px;
+    }
+    .add-fuel-label { font-size: 8px; letter-spacing: 1px; color: #666; }
+    .add-fuel-current { font-size: 13px; color: #888; }
+    .add-fuel-row { display: flex; align-items: center; gap: 2px; }
+    .add-fuel-plus { font-size: 12px; color: #4ECDC4; }
+    .add-fuel-input {
+      width: 36px;
+      height: 26px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      background-color: #0a0a0a;
+      border: 1px solid #4ECDC4;
+      border-radius: 4px;
+      color: #4ECDC4;
+      font-family: inherit;
+    }
+    .add-fuel-input:focus { outline: none; }
+    .add-fuel-new { font-size: 12px; font-weight: 700; color: #FFE66D; }
+    
+    .add-fuel-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background-color: #1a1a1a;
+      border-radius: 6px;
+    }
+    .add-fuel-summary-label { font-size: 10px; letter-spacing: 1px; color: #888; }
+    .add-fuel-summary-value { font-size: 20px; font-weight: 700; color: #FFE66D; }
+    
+    .add-fuel-start {
+      width: 100%;
+      padding: 14px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      background-color: #4ECDC4;
+      border: none;
+      border-radius: 8px;
+      color: #000;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    
+    /* Preset Buttons */
+    .new-flight-label { font-size: 11px; letter-spacing: 3px; color: #666; margin-bottom: 16px; }
+    
+    .preset-buttons { display: flex; gap: 20px; }
+    
+    .preset-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 36px;
+      background-color: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 12px;
+      cursor: pointer;
+      gap: 6px;
+    }
+    .preset-btn:active { transform: scale(0.98); border-color: #4ECDC4; }
+    .preset-name { font-size: 22px; font-weight: 700; color: #fff; }
+    .preset-detail { font-size: 16px; color: #4ECDC4; }
+    .preset-tanks { font-size: 10px; color: #666; letter-spacing: 1px; }
+    
+    /* ===== FLIGHT SCREEN ===== */
+    #flight-screen { display: none; }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #222;
+    }
+    .reset-btn {
+      width: 44px; height: 44px;
+      background: transparent;
+      border: 1px solid #444;
+      border-radius: 8px;
+      color: #666;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .header-center { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .preset-badge { font-size: 11px; letter-spacing: 3px; color: #666; }
+    .total-fuel { font-size: 24px; font-weight: 700; color: #4ECDC4; }
+    .swap-count { font-size: 18px; color: #666; width: 44px; text-align: right; }
+    
+    .phase-indicator {
+      text-align: center;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: #666;
+      margin-bottom: 12px;
+      padding: 8px;
+      background-color: #111;
+      border-radius: 6px;
+    }
+    .phase-indicator.tips-phase { color: #FFE66D; border: 1px solid #FFE66D33; }
+    .phase-indicator.endurance-mode { color: #FFE66D; border: 1px solid #FFE66D33; }
+    .phase-indicator.balanced-mode { color: #4ECDC4; border: 1px solid #4ECDC433; }
+    .phase-indicator.exhausted { color: #FF6B6B; border: 1px solid #FF6B6B55; background-color: #1a0a0a; }
+    .tips-remaining { font-size: 9px; color: #888; margin-top: 4px; }
+    
+    .tank-display {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      gap: 8px;
+    }
+    .wing { display: flex; gap: 8px; }
+    .tank {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+      background-color: #111;
+      border: 2px solid #333;
+      border-radius: 8px;
+      width: 65px;
+    }
+    .tank.active { border-color: #FFE66D; }
+    .tank.locked { opacity: 0.4; }
+    .tank-label { font-size: 9px; letter-spacing: 1px; color: #666; margin-bottom: 6px; }
+    .tank-bar-outer {
+      width: 28px; height: 70px;
+      background-color: #1a1a1a;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    .tank-bar-inner {
+      width: 100%;
+      background-color: #4ECDC4;
+      transition: height 0.3s;
+      border-radius: 2px;
+    }
+    .tank-bar-inner.active { background-color: #FFE66D; }
+    .tank-bar-inner.low { background-color: #FF6B6B; }
+    .tank-value { font-size: 14px; font-weight: 700; margin-top: 6px; color: #fff; }
+    .tank-value.low { color: #FF6B6B; }
+    
+    .center-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 16px;
+      background-color: #111;
+      border-radius: 12px;
+      border: 1px solid #222;
+      min-width: 110px;
+    }
+    .current-tank-label { font-size: 9px; letter-spacing: 2px; color: #666; }
+    .current-tank { font-size: 20px; font-weight: 700; margin-top: 4px; }
+    .current-tank.left { color: #4ECDC4; }
+    .current-tank.right { color: #FF6B6B; }
+    .next-tank-prompt {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid #222;
+      font-size: 8px;
+      letter-spacing: 1px;
+      color: #666;
+    }
+    .next-tank-name { font-size: 12px; font-weight: 700; color: #FFE66D; margin-top: 2px; }
+    
+    .info-display { display: flex; justify-content: center; margin-bottom: 14px; }
+    .info-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 20px;
+      background-color: #111;
+      border-radius: 10px;
+      border: 1px solid #222;
+    }
+    .info-label { font-size: 9px; letter-spacing: 2px; color: #666; margin-bottom: 6px; }
+    .info-value { font-size: 28px; font-weight: 700; color: #fff; }
+    
+    .swap-targets { display: flex; justify-content: center; gap: 16px; margin-bottom: 14px; }
+    .swap-target-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 14px 20px;
+      background-color: #111;
+      border-radius: 10px;
+      border: 1px solid #222;
+      min-width: 140px;
+    }
+    .swap-target-box.balanced { border-color: #4ECDC455; }
+    .swap-target-box.endurance { border-color: #FFE66D55; }
+    .swap-target-box.locked-balanced { border-color: #4ECDC4; min-width: 180px; }
+    .swap-target-box.locked-endurance { border-color: #FFE66D; min-width: 180px; }
+    .swap-target-label { font-size: 9px; letter-spacing: 2px; color: #666; margin-bottom: 6px; }
+    .swap-target-value { font-size: 28px; font-weight: 700; }
+    .swap-target-box.balanced .swap-target-value { color: #4ECDC4; }
+    .swap-target-box.endurance .swap-target-value { color: #FFE66D; }
+    .swap-target-box.locked-balanced .swap-target-value { color: #4ECDC4; }
+    .swap-target-box.locked-endurance .swap-target-value { color: #FFE66D; }
+    .swap-target-time { font-size: 12px; color: #888; margin-top: 4px; }
+    
+    .gph-section {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 14px;
+      background-color: #0f1a1a;
+      border: 1px solid #4ECDC433;
+      border-radius: 10px;
+    }
+    .gph-section.visible { display: flex; }
+    .gph-label { font-size: 10px; letter-spacing: 2px; color: #4ECDC4; }
+    .gph-input-row { display: flex; align-items: center; gap: 8px; }
+    .gph-input {
+      width: 80px; height: 44px;
+      font-size: 22px; font-weight: 700;
+      text-align: center;
+      background-color: #1a1a1a;
+      border: 2px solid #4ECDC4;
+      border-radius: 8px;
+      color: #fff;
+      font-family: inherit;
+    }
+    .gph-input:focus { outline: none; }
+    .gph-unit { font-size: 12px; color: #666; }
+    .gph-hint { font-size: 9px; color: #555; }
+    
+    .input-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .input-label { font-size: 11px; letter-spacing: 2px; color: #666; }
+    .input-field {
+      width: 180px; height: 60px;
+      font-size: 32px; font-weight: 700;
+      text-align: center;
+      background-color: #1a1a1a;
+      border: 2px solid #333;
+      border-radius: 8px;
+      color: #fff;
+      font-family: inherit;
+    }
+    .input-field:focus { outline: none; border-color: #4ECDC4; }
+    .log-btn {
+      width: 200px; height: 52px;
+      font-size: 16px; font-weight: 700;
+      letter-spacing: 2px;
+      background-color: #4ECDC4;
+      border: none;
+      border-radius: 8px;
+      color: #000;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .log-btn:disabled { background-color: #333; color: #666; }
+    
+    .history {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px;
+      background-color: #111;
+      border-radius: 8px;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+    .history-row { display: flex; gap: 12px; font-size: 12px; color: #666; }
+    .history-num { width: 24px; color: #444; }
+    .history-tank { width: 55px; }
+    .history-val { width: 45px; text-align: right; color: #888; }
+    .history-burn { color: #4ECDC4; }
+    
+    .offline-indicator {
+      position: fixed;
+      top: max(8px, env(safe-area-inset-top));
+      right: 8px;
+      padding: 4px 8px;
+      background-color: #FF6B6B;
+      color: #000;
+      font-size: 9px;
+      font-weight: 700;
+      border-radius: 4px;
+      display: none;
+    }
+    .offline-indicator.visible { display: block; }
+  </style>
+</head>
+<body>
+  <div class="offline-indicator" id="offline-indicator">OFFLINE</div>
+
+  <div id="start-screen">
+    <h1 class="title">N215C</h1>
+    <p class="subtitle">FUEL TRACKER</p>
+    
+    <div class="resume-box" id="resume-box">
+      <span class="resume-title">SAVED FLIGHT</span>
+      <span class="resume-info" id="resume-info">--</span>
+      
+      <div class="resume-buttons" id="resume-buttons">
+        <button class="resume-btn primary" id="btn-resume" onclick="resumeFlight()">RESUME</button>
+        <button class="resume-btn secondary" onclick="showAddFuelPanel()">ADD FUEL</button>
+        <button class="resume-btn tertiary" onclick="clearAll()">CLEAR</button>
+      </div>
+      
+      <div class="add-fuel-panel" id="add-fuel-panel">
+        <div class="add-fuel-grid">
+          <div class="add-fuel-tank">
+            <span class="add-fuel-label">L TIP</span>
+            <span class="add-fuel-current" id="af-ltip-cur">0.0</span>
+            <div class="add-fuel-row">
+              <span class="add-fuel-plus">+</span>
+              <input type="number" class="add-fuel-input" id="af-ltip" value="0" min="0" max="17">
+            </div>
+            <span class="add-fuel-new" id="af-ltip-new">0.0</span>
+          </div>
+          <div class="add-fuel-tank">
+            <span class="add-fuel-label">L MAIN</span>
+            <span class="add-fuel-current" id="af-lmain-cur">0.0</span>
+            <div class="add-fuel-row">
+              <span class="add-fuel-plus">+</span>
+              <input type="number" class="add-fuel-input" id="af-lmain" value="0" min="0" max="25">
+            </div>
+            <span class="add-fuel-new" id="af-lmain-new">0.0</span>
+          </div>
+          <div class="add-fuel-tank">
+            <span class="add-fuel-label">R MAIN</span>
+            <span class="add-fuel-current" id="af-rmain-cur">0.0</span>
+            <div class="add-fuel-row">
+              <span class="add-fuel-plus">+</span>
+              <input type="number" class="add-fuel-input" id="af-rmain" value="0" min="0" max="25">
+            </div>
+            <span class="add-fuel-new" id="af-rmain-new">0.0</span>
+          </div>
+          <div class="add-fuel-tank">
+            <span class="add-fuel-label">R TIP</span>
+            <span class="add-fuel-current" id="af-rtip-cur">0.0</span>
+            <div class="add-fuel-row">
+              <span class="add-fuel-plus">+</span>
+              <input type="number" class="add-fuel-input" id="af-rtip" value="0" min="0" max="17">
+            </div>
+            <span class="add-fuel-new" id="af-rtip-new">0.0</span>
+          </div>
+        </div>
+        <div class="add-fuel-summary">
+          <span class="add-fuel-summary-label">NEW TOTAL</span>
+          <span class="add-fuel-summary-value" id="af-total">0.0 GAL</span>
+        </div>
+        <button class="add-fuel-start" onclick="startWithAddedFuel()">START NEW CYCLE</button>
+      </div>
+    </div>
+    
+    <div class="new-flight-label" id="new-flight-label">NEW FLIGHT</div>
+    
+    <div class="preset-buttons">
+      <button class="preset-btn" onclick="startFlight('topoff')">
+        <span class="preset-name">TOP OFF</span>
+        <span class="preset-detail">84 GAL</span>
+        <span class="preset-tanks">17 / 25 / 25 / 17</span>
+      </button>
+      <button class="preset-btn" onclick="startFlight('tabs')">
+        <span class="preset-name">TABS</span>
+        <span class="preset-detail">70 GAL</span>
+        <span class="preset-tanks">17 / 18 / 18 / 17</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="flight-screen">
+    <div class="header">
+      <button class="reset-btn" onclick="endFlight()">✕</button>
+      <div class="header-center">
+        <span class="preset-badge" id="preset-badge">TOP OFF</span>
+        <span class="total-fuel" id="total-fuel">84.0 GAL</span>
+      </div>
+      <div class="swap-count" id="swap-count">#1</div>
+    </div>
+
+    <div class="phase-indicator" id="phase-indicator">MAINS PHASE<div class="tips-remaining hidden" id="tips-remaining"></div></div>
+
+    <div class="tank-display">
+      <div class="wing">
+        <div class="tank" id="tank-lTip"><div class="tank-label">L TIP</div><div class="tank-bar-outer"><div class="tank-bar-inner" id="bar-lTip"></div></div><div class="tank-value" id="val-lTip">17.0</div></div>
+        <div class="tank" id="tank-lMain"><div class="tank-label">L MAIN</div><div class="tank-bar-outer"><div class="tank-bar-inner" id="bar-lMain"></div></div><div class="tank-value" id="val-lMain">25.0</div></div>
+      </div>
+      <div class="center-indicator">
+        <div class="current-tank-label">BURNING</div>
+        <div class="current-tank left" id="current-tank">L MAIN</div>
+        <div class="next-tank-prompt">NEXT</div>
+        <div class="next-tank-name" id="next-tank">R MAIN</div>
+      </div>
+      <div class="wing">
+        <div class="tank" id="tank-rMain"><div class="tank-label">R MAIN</div><div class="tank-bar-outer"><div class="tank-bar-inner" id="bar-rMain"></div></div><div class="tank-value" id="val-rMain">25.0</div></div>
+        <div class="tank" id="tank-rTip"><div class="tank-label">R TIP</div><div class="tank-bar-outer"><div class="tank-bar-inner" id="bar-rTip"></div></div><div class="tank-value" id="val-rTip">17.0</div></div>
+      </div>
+    </div>
+
+    <div class="info-display"><div class="info-box"><span class="info-label">LAST READING</span><span class="info-value" id="last-reading">--</span></div></div>
+
+    <div class="swap-targets" id="swap1-target"><div class="swap-target-box endurance"><span class="swap-target-label">SWAP AT</span><span class="swap-target-value">7.0</span><span class="swap-target-time">CLIMBOUT</span></div></div>
+    <div class="swap-targets hidden" id="swap2-targets"><div class="swap-target-box balanced"><span class="swap-target-label">BALANCED</span><span class="swap-target-value" id="balanced-value">--</span><span class="swap-target-time" id="balanced-time">--</span></div><div class="swap-target-box endurance"><span class="swap-target-label">ENDURANCE</span><span class="swap-target-value" id="endurance-value">--</span><span class="swap-target-time" id="endurance-time">--</span></div></div>
+    <div class="swap-targets hidden" id="swap3-target"><div class="swap-target-box" id="locked-mode-box"><span class="swap-target-label" id="locked-mode-label">SWAP AT</span><span class="swap-target-value" id="locked-mode-value">--</span><span class="swap-target-time" id="locked-mode-time">--</span></div></div>
+
+    <div class="gph-section" id="gph-section"><span class="gph-label">GPH REFERENCE</span><div class="gph-input-row"><input type="number" class="gph-input" id="gph-input" value="16.0" step="0.5" min="10" max="25"><span class="gph-unit">GAL/HR</span></div><span class="gph-hint">Enter cruise GPH after leaning</span></div>
+
+    <div class="input-section"><label class="input-label">TOTALIZER USED</label><input type="number" step="0.1" class="input-field" id="totalizer-input" placeholder="0.0"><button class="log-btn" id="log-btn" onclick="logSwap()">LOG SWAP</button></div>
+
+    <div class="history hidden" id="history"></div>
+  </div>
+
+  <script>
+    const PRESETS = {
+      topoff: { name: 'TOP OFF', lTip: 17, lMain: 25, rMain: 25, rTip: 17 },
+      tabs: { name: 'TABS', lTip: 17, lMain: 18, rMain: 18, rTip: 17 }
+    };
+    
+    const STORAGE_KEY = 'n215c_fuel_state';
+    const RESERVE = 1.0, LOW_WARN = 2.0, MAX_TIP_SWAPS = 4;
+    const BAL_MIN = 7, BAL_MAX = 10, END_RES_MIN = 5, END_RES_MAX = 8;
+    
+    let state = {
+      preset: null,
+      customFuel: null,
+      currentTank: 'lMain',
+      swapLog: [],
+      tankBurned: { lTip: 0, lMain: 0, rMain: 0, rTip: 0 },
+      phase: 'mains',
+      tipSwapCount: 0,
+      fuelExhausted: false,
+      gph: 16.0,
+      flightMode: null,
+      swap2Targets: null
+    };
+    
+    // Storage
+    function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){} }
+    function loadState() { try { const v = localStorage.getItem(STORAGE_KEY); return v ? JSON.parse(v) : null; } catch(e){} return null; }
+    function clearStorage() { try { localStorage.removeItem(STORAGE_KEY); } catch(e){} }
+    
+    // Get current fuel levels from saved state
+    function getSavedFuelLevels() {
+      const saved = loadState();
+      if (!saved || !saved.preset) return null;
+      
+      const levels = {};
+      ['lTip', 'lMain', 'rMain', 'rTip'].forEach(t => {
+        const start = saved.preset === 'custom' ? (saved.customFuel?.[t] || 0) : (PRESETS[saved.preset]?.[t] || 0);
+        levels[t] = Math.max(0, start - (saved.tankBurned?.[t] || 0));
+      });
+      return levels;
+    }
+    
+    // Init
+    function initApp() {
+      checkOffline();
+      window.addEventListener('online', checkOffline);
+      window.addEventListener('offline', checkOffline);
+      
+      const saved = loadState();
+      if (saved && saved.preset) {
+        showResumeBox();
+      } else {
+        hideResumeBox();
+      }
+      
+      setupListeners();
+    }
+    
+    function checkOffline() {
+      const el = document.getElementById('offline-indicator');
+      if (el) el.classList.toggle('visible', !navigator.onLine);
+    }
+    
+    function showResumeBox() {
+      const box = document.getElementById('resume-box');
+      const info = document.getElementById('resume-info');
+      const panel = document.getElementById('add-fuel-panel');
+      const btns = document.getElementById('resume-buttons');
+      const label = document.getElementById('new-flight-label');
+      
+      if (!box) return;
+      
+      // Reset panel
+      if (panel) panel.classList.remove('visible');
+      if (btns) btns.style.display = 'flex';
+      
+      const saved = loadState();
+      if (saved && saved.preset) {
+        const name = saved.preset === 'custom' ? 'PARTIAL' : (PRESETS[saved.preset]?.name || 'FLIGHT');
+        const levels = getSavedFuelLevels();
+        const total = levels ? (levels.lTip + levels.lMain + levels.rMain + levels.rTip) : 0;
+        const swapNum = (saved.swapLog?.length || 0) + 1;
+        info.textContent = `${name} • ${total.toFixed(1)} GAL • Swap #${swapNum}`;
+      }
+      
+      box.classList.add('visible');
+      if (label) label.classList.remove('hidden');
+      
+      populateAddFuelPanel();
+    }
+    
+    function hideResumeBox() {
+      const box = document.getElementById('resume-box');
+      const label = document.getElementById('new-flight-label');
+      if (box) box.classList.remove('visible');
+      if (label) label.classList.add('hidden');
+    }
+    
+    function showAddFuelPanel() {
+      const panel = document.getElementById('add-fuel-panel');
+      const btns = document.getElementById('resume-buttons');
+      if (panel) panel.classList.add('visible');
+      if (btns) btns.style.display = 'none';
+      populateAddFuelPanel();
+    }
+    
+    function populateAddFuelPanel() {
+      const levels = getSavedFuelLevels() || { lTip: 0, lMain: 0, rMain: 0, rTip: 0 };
+      
+      setText('af-ltip-cur', levels.lTip.toFixed(1));
+      setText('af-lmain-cur', levels.lMain.toFixed(1));
+      setText('af-rmain-cur', levels.rMain.toFixed(1));
+      setText('af-rtip-cur', levels.rTip.toFixed(1));
+      
+      setVal('af-ltip', 0);
+      setVal('af-lmain', 0);
+      setVal('af-rmain', 0);
+      setVal('af-rtip', 0);
+      
+      updateAddFuelTotals();
+    }
+    
+    function updateAddFuelTotals() {
+      const levels = getSavedFuelLevels() || { lTip: 0, lMain: 0, rMain: 0, rTip: 0 };
+      
+      const newLtip = Math.min(17, levels.lTip + getNum('af-ltip'));
+      const newLmain = Math.min(25, levels.lMain + getNum('af-lmain'));
+      const newRmain = Math.min(25, levels.rMain + getNum('af-rmain'));
+      const newRtip = Math.min(17, levels.rTip + getNum('af-rtip'));
+      
+      setText('af-ltip-new', newLtip.toFixed(1));
+      setText('af-lmain-new', newLmain.toFixed(1));
+      setText('af-rmain-new', newRmain.toFixed(1));
+      setText('af-rtip-new', newRtip.toFixed(1));
+      setText('af-total', (newLtip + newLmain + newRmain + newRtip).toFixed(1) + ' GAL');
+    }
+    
+    // Flight Control
+    function startFlight(presetKey) {
+      state = {
+        preset: presetKey,
+        customFuel: null,
+        currentTank: 'lMain',
+        swapLog: [],
+        tankBurned: { lTip: 0, lMain: 0, rMain: 0, rTip: 0 },
+        phase: 'mains',
+        tipSwapCount: 0,
+        fuelExhausted: false,
+        gph: 16.0,
+        flightMode: null,
+        swap2Targets: null
+      };
+      saveState();
+      showFlightScreen();
+    }
+    
+    function startWithAddedFuel() {
+      const levels = getSavedFuelLevels() || { lTip: 0, lMain: 0, rMain: 0, rTip: 0 };
+      
+      const customFuel = {
+        lTip: Math.min(17, levels.lTip + getNum('af-ltip')),
+        lMain: Math.min(25, levels.lMain + getNum('af-lmain')),
+        rMain: Math.min(25, levels.rMain + getNum('af-rmain')),
+        rTip: Math.min(17, levels.rTip + getNum('af-rtip'))
+      };
+      
+      state = {
+        preset: 'custom',
+        customFuel: customFuel,
+        currentTank: 'lMain',
+        swapLog: [],
+        tankBurned: { lTip: 0, lMain: 0, rMain: 0, rTip: 0 },
+        phase: 'mains',
+        tipSwapCount: 0,
+        fuelExhausted: false,
+        gph: 16.0,
+        flightMode: 'balanced',
+        swap2Targets: null
+      };
+      saveState();
+      showFlightScreen();
+    }
+    
+    function resumeFlight() {
+      const saved = loadState();
+      if (saved && saved.preset) {
+        state = saved;
+        showFlightScreen();
+      }
+    }
+    
+    function clearAll() {
+      clearStorage();
+      hideResumeBox();
+    }
+    
+    function endFlight() {
+      // Keep state saved (don't clear) so we can resume or add fuel
+      saveState();
+      showStartScreen();
+    }
+    
+    function showFlightScreen() {
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('flight-screen').style.display = 'block';
+      setVal('gph-input', state.gph);
+      updateDisplay();
+    }
+    
+    function showStartScreen() {
+      document.getElementById('start-screen').style.display = 'flex';
+      document.getElementById('flight-screen').style.display = 'none';
+      setVal('totalizer-input', '');
+      
+      const hist = document.getElementById('history');
+      if (hist) { hist.innerHTML = ''; hist.classList.add('hidden'); }
+      
+      if (loadState()?.preset) showResumeBox();
+      else hideResumeBox();
+    }
+    
+    // Calculations
+    function getStartFuel(tank) {
+      if (state.preset === 'custom') return state.customFuel?.[tank] || 0;
+      return PRESETS[state.preset]?.[tank] || 0;
+    }
+    
+    function getRemaining(tank) {
+      return Math.max(0, getStartFuel(tank) - state.tankBurned[tank]);
+    }
+    
+    function getTotalRemaining() {
+      return getRemaining('lTip') + getRemaining('lMain') + getRemaining('rMain') + getRemaining('rTip');
+    }
+    
+    function getLastReading() {
+      return state.swapLog.length ? state.swapLog[state.swapLog.length - 1].totalizer : null;
+    }
+    
+    function mainsEmpty() {
+      return getRemaining('lMain') <= RESERVE && getRemaining('rMain') <= RESERVE;
+    }
+    
+    function getNextTank() {
+      if (state.fuelExhausted) return null;
+      const lm = getRemaining('lMain'), rm = getRemaining('rMain');
+      const lt = getRemaining('lTip'), rt = getRemaining('rTip');
+      
+      if (state.phase === 'tips') {
+        if (state.tipSwapCount >= MAX_TIP_SWAPS) return null;
+        if (state.currentTank === 'lTip') return rt > RESERVE ? 'rTip' : (lt > RESERVE ? 'lTip' : null);
+        return lt > RESERVE ? 'lTip' : (rt > RESERVE ? 'rTip' : null);
+      }
+      
+      if (!mainsEmpty()) {
+        if (state.currentTank === 'lMain') return rm > RESERVE ? 'rMain' : (lm > RESERVE ? 'lMain' : null);
+        if (state.currentTank === 'rMain') return lm > RESERVE ? 'lMain' : (rm > RESERVE ? 'rMain' : null);
+        return lm >= rm ? 'lMain' : 'rMain';
+      }
+      
+      return lt > RESERVE ? 'lTip' : (rt > RESERVE ? 'rTip' : null);
+    }
+    
+    function formatTime(h) {
+      const hrs = Math.floor(h);
+      const mins = Math.round((h - hrs) * 60);
+      return hrs + ':' + mins.toString().padStart(2, '0');
+    }
+    
+    function calcTargets() {
+      const last = getLastReading();
+      const cur = getRemaining(state.currentTank);
+      if (last === null || state.phase === 'tips') return { balanced: null, endurance: null };
+      
+      let balBurn = Math.min(BAL_MAX, cur - RESERVE);
+      balBurn = Math.max(BAL_MIN, balBurn);
+      if (balBurn > cur - RESERVE) balBurn = cur - RESERVE;
+      
+      let endRes = state.gph <= 13.5 ? END_RES_MIN : (state.gph >= 17 ? END_RES_MAX : END_RES_MIN + (state.gph - 13.5) / 3.5 * (END_RES_MAX - END_RES_MIN));
+      let endBurn = Math.max(0, cur - endRes);
+      if (state.preset === 'custom') endBurn = Math.min(endBurn, BAL_MAX);
+      
+      return {
+        balanced: { target: last + balBurn, burn: balBurn, time: balBurn / state.gph },
+        endurance: { target: last + endBurn, burn: endBurn, time: endBurn / state.gph }
+      };
+    }
+    
+    function tankLabel(t) { return { lMain: 'L MAIN', rMain: 'R MAIN', lTip: 'L TIP', rTip: 'R TIP' }[t] || t; }
+    function tankSide(t) { return t.startsWith('l') ? 'left' : 'right'; }
+    
+    // Actions
+    function logSwap() {
+      if (state.fuelExhausted) return;
+      const input = document.getElementById('totalizer-input');
+      const reading = parseFloat(input?.value);
+      if (isNaN(reading)) return;
+      
+      const burned = state.swapLog.length ? reading - state.swapLog[state.swapLog.length - 1].totalizer : reading;
+      
+      if (state.swapLog.length === 1 && state.swap2Targets) {
+        const avg = (state.swap2Targets.balanced + state.swap2Targets.endurance) / 2;
+        state.flightMode = reading > avg ? 'endurance' : 'balanced';
+      }
+      
+      state.tankBurned[state.currentTank] += burned;
+      state.swapLog.push({ swapNumber: state.swapLog.length + 1, tank: tankLabel(state.currentTank), totalizer: reading, burned });
+      
+      if (state.phase === 'mains' && mainsEmpty()) { state.phase = 'tips'; state.tipSwapCount = 0; }
+      if (state.phase === 'tips') state.tipSwapCount++;
+      
+      const next = getNextTank();
+      if (next) state.currentTank = next;
+      else state.fuelExhausted = true;
+      
+      input.value = '';
+      saveState();
+      updateDisplay();
+    }
+    
+    // Display
+    function updateDisplay() {
+      if (!state.preset) return;
+      
+      const isCustom = state.preset === 'custom';
+      const name = isCustom ? 'PARTIAL' : PRESETS[state.preset].name;
+      const mode = isCustom ? 'balanced' : state.flightMode;
+      const swapCount = state.swapLog.length;
+      
+      setText('preset-badge', name);
+      setText('total-fuel', getTotalRemaining().toFixed(1) + ' GAL');
+      setText('swap-count', '#' + (swapCount + 1));
+      
+      const phaseEl = document.getElementById('phase-indicator');
+      const tipsEl = document.getElementById('tips-remaining');
+      if (phaseEl) {
+        if (state.fuelExhausted) {
+          phaseEl.innerHTML = 'FUEL EXHAUSTED';
+          phaseEl.className = 'phase-indicator exhausted';
+          tipsEl?.classList.add('hidden');
+        } else if (state.phase === 'tips') {
+          phaseEl.innerHTML = 'TIPS PHASE';
+          phaseEl.className = 'phase-indicator tips-phase';
+          if (tipsEl) { tipsEl.textContent = (MAX_TIP_SWAPS - state.tipSwapCount) + ' SWAPS LEFT'; tipsEl.classList.remove('hidden'); }
+        } else {
+          phaseEl.innerHTML = mode ? 'MAINS • ' + mode.toUpperCase() : 'MAINS PHASE';
+          phaseEl.className = 'phase-indicator' + (mode ? ' ' + mode + '-mode' : '');
+          tipsEl?.classList.add('hidden');
+        }
+      }
+      
+      const curEl = document.getElementById('current-tank');
+      if (curEl) {
+        curEl.textContent = state.fuelExhausted ? '--' : tankLabel(state.currentTank);
+        curEl.className = 'current-tank ' + (state.fuelExhausted ? '' : tankSide(state.currentTank));
+      }
+      setText('next-tank', getNextTank() ? tankLabel(getNextTank()) : '--');
+      setText('last-reading', getLastReading() !== null ? getLastReading().toFixed(1) : '--');
+      
+      const s1 = document.getElementById('swap1-target');
+      const s2 = document.getElementById('swap2-targets');
+      const s3 = document.getElementById('swap3-target');
+      const gph = document.getElementById('gph-section');
+      
+      if (swapCount === 0 && !isCustom) {
+        s1?.classList.remove('hidden'); s2?.classList.add('hidden'); s3?.classList.add('hidden'); gph?.classList.remove('visible');
+      } else if (swapCount === 0 && isCustom) {
+        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden'); gph?.classList.add('visible');
+        const burn = Math.min(BAL_MAX, getRemaining('lMain') - RESERVE);
+        setTargetBox('locked', 'BALANCED', burn.toFixed(1), formatTime(burn / state.gph), 'balanced');
+      } else if (swapCount === 1 && state.phase === 'mains' && !isCustom) {
+        s1?.classList.add('hidden'); s2?.classList.remove('hidden'); s3?.classList.add('hidden'); gph?.classList.add('visible');
+        const t = calcTargets();
+        if (t.balanced && t.endurance) {
+          state.swap2Targets = { balanced: t.balanced.target, endurance: t.endurance.target };
+          saveState();
+          setText('balanced-value', t.balanced.target.toFixed(1));
+          setText('balanced-time', formatTime(t.balanced.time));
+          setText('endurance-value', t.endurance.target.toFixed(1));
+          setText('endurance-time', formatTime(t.endurance.time));
+        }
+      } else if ((mode || isCustom) && state.phase === 'mains') {
+        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden'); gph?.classList.add('visible');
+        const t = calcTargets();
+        const sel = mode === 'endurance' ? t.endurance : t.balanced;
+        if (sel) setTargetBox('locked', mode === 'endurance' ? 'ENDURANCE' : 'BALANCED', sel.target.toFixed(1), formatTime(sel.time), mode);
+        else setTargetBox('locked', 'SWAP AT', '--', '--', 'balanced');
+      } else {
+        s1?.classList.add('hidden'); s2?.classList.add('hidden'); s3?.classList.remove('hidden'); gph?.classList.remove('visible');
+        const burn = Math.min(8, getRemaining(state.currentTank) - RESERVE);
+        const last = getLastReading();
+        if (last !== null && burn > 0) setTargetBox('locked', 'SWAP AT', (last + burn).toFixed(1), formatTime(burn / state.gph), 'balanced');
+        else setTargetBox('locked', 'SWAP AT', '--', '--', 'balanced');
+      }
+      
+      const maxes = { lTip: 17, lMain: 25, rMain: 25, rTip: 17 };
+      const tipsLocked = state.phase === 'mains';
+      
+      ['lTip', 'lMain', 'rMain', 'rTip'].forEach(t => {
+        const rem = getRemaining(t);
+        const start = getStartFuel(t);
+        const max = Math.max(start, maxes[t]);
+        const pct = max > 0 ? (rem / max) * 100 : 0;
+        const low = rem <= LOW_WARN;
+        const active = state.currentTank === t && !state.fuelExhausted;
+        const locked = t.includes('Tip') && tipsLocked;
+        
+        const tankEl = document.getElementById('tank-' + t);
+        const barEl = document.getElementById('bar-' + t);
+        const valEl = document.getElementById('val-' + t);
+        
+        if (tankEl) tankEl.className = 'tank' + (active ? ' active' : '') + (locked ? ' locked' : '');
+        if (barEl) { barEl.style.height = pct + '%'; barEl.className = 'tank-bar-inner' + (low ? ' low' : '') + (active && !low ? ' active' : ''); }
+        if (valEl) { valEl.textContent = rem.toFixed(1); valEl.className = 'tank-value' + (low ? ' low' : ''); }
+      });
+      
+      const hist = document.getElementById('history');
+      if (hist) {
+        if (state.swapLog.length) {
+          hist.classList.remove('hidden');
+          hist.innerHTML = state.swapLog.slice(-4).reverse().map(l => `<div class="history-row"><span class="history-num">#${l.swapNumber}</span><span class="history-tank">${l.tank}</span><span class="history-val">${l.totalizer.toFixed(1)}</span><span class="history-burn">+${l.burned.toFixed(1)}</span></div>`).join('');
+        } else hist.classList.add('hidden');
+      }
+      
+      const btn = document.getElementById('log-btn');
+      const inp = document.getElementById('totalizer-input');
+      if (btn && inp) btn.disabled = state.fuelExhausted || !inp.value;
+    }
+    
+    function setTargetBox(prefix, label, value, time, modeClass) {
+      const box = document.getElementById(prefix + '-mode-box');
+      const lbl = document.getElementById(prefix + '-mode-label');
+      const val = document.getElementById(prefix + '-mode-value');
+      const tm = document.getElementById(prefix + '-mode-time');
+      if (box) box.className = 'swap-target-box locked-' + modeClass;
+      if (lbl) lbl.textContent = label;
+      if (val) val.textContent = value;
+      if (tm) tm.textContent = time;
+    }
+    
+    function setText(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
+    function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+    function getNum(id) { return parseFloat(document.getElementById(id)?.value) || 0; }
+    
+    function setupListeners() {
+      document.getElementById('totalizer-input')?.addEventListener('input', function() {
+        const btn = document.getElementById('log-btn');
+        if (btn) btn.disabled = state.fuelExhausted || !this.value;
+      });
+      
+      document.getElementById('gph-input')?.addEventListener('input', function() {
+        state.gph = Math.max(10, Math.min(25, parseFloat(this.value) || 16));
+        saveState();
+        updateDisplay();
+      });
+      
+      ['af-ltip', 'af-lmain', 'af-rmain', 'af-rtip'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateAddFuelTotals);
+      });
+    }
+    
+    if ('serviceWorker' in navigator) {
+      const sw = `const C='n215c-v4';self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(clients.claim()));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>caches.open(C).then(c=>{c.put(e.request,res.clone());return res;}))).catch(()=>new Response('Offline'))));`;
+      navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw], {type:'application/javascript'}))).catch(()=>{});
+    }
+    
+    document.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
