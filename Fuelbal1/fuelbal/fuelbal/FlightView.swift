@@ -12,12 +12,14 @@ struct FlightView: View {
     @State private var totalizerInput = ""
     @State private var inputError = ""
     @FocusState private var inputFocused: Bool
+    @State private var showShutdownPrompt = false
+    @State private var shutdownInput = ""
     
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
                 // Header
-                HeaderView(fuel: fuel)
+                HeaderView(fuel: fuel, onShutdown: { showShutdownPrompt = true })
                 
                 // Phase indicator
                 PhaseIndicator(fuel: fuel)
@@ -55,6 +57,23 @@ struct FlightView: View {
         .onTapGesture {
             inputFocused = false
         }
+        .sheet(isPresented: $showShutdownPrompt) {
+            ShutdownPromptView(
+                fuel: fuel,
+                shutdownInput: $shutdownInput,
+                onCancel: {
+                    showShutdownPrompt = false
+                    shutdownInput = ""
+                },
+                onConfirm: { reading in
+                    fuel.shutdown(reading: reading)
+                    showShutdownPrompt = false
+                    shutdownInput = ""
+                }
+            )
+            .presentationDetents([.height(380)])
+            .presentationDragIndicator(.visible)
+        }
     }
 }
 
@@ -62,12 +81,13 @@ struct FlightView: View {
 
 struct HeaderView: View {
     @ObservedObject var fuel: FuelState
+    let onShutdown: () -> Void
     
     var body: some View {
         HStack {
             // Left buttons
             HStack(spacing: 8) {
-                Button(action: { fuel.endFlight() }) {
+                Button(action: onShutdown) {
                     Text("✕")
                         .font(.system(size: 20))
                         .foregroundColor(.secondaryText)
@@ -139,18 +159,18 @@ struct PhaseIndicator: View {
     
     var colors: (text: Color, border: Color, bg: Color) {
         if fuel.fuelExhausted {
-            return (.fuelLow, .fuelLow.opacity(0.33), .cardBackground.opacity(0.5))
+            return (.fuelLow, .fuelLow.opacity(0.33), Color.cardBackground.opacity(0.5))
         }
         if fuel.phase == .tips {
-            return (.fuelActive, .fuelActive.opacity(0.2), .cardBackground)
+            return (.fuelActive, .fuelActive.opacity(0.2), Color.cardBackground)
         }
         if fuel.flightMode == .endurance {
-            return (.fuelActive, .fuelActive.opacity(0.2), .cardBackground)
+            return (.fuelActive, .fuelActive.opacity(0.2), Color.cardBackground)
         }
         if fuel.flightMode == .balanced {
-            return (.accentText, .accentText.opacity(0.27), .cardBackground)
+            return (.accentText, .accentText.opacity(0.27), Color.cardBackground)
         }
-        return (.gray, Color.white.opacity(0.1), .cardBackground)
+        return (.gray, Color.white.opacity(0.1), Color.cardBackground)
     }
     
     var body: some View {
@@ -418,9 +438,9 @@ struct TargetBox: View {
     
     var bgColor: Color {
         switch style {
-        case .warning: return .cardBackground.opacity(0.5)
+        case .warning: return Color.cardBackground.opacity(0.5)
         case .zeroFuel: return Color.red.opacity(0.1)
-        default: return .cardBackground
+        default: return Color.cardBackground
         }
     }
     
@@ -555,6 +575,111 @@ struct HistoryView: View {
         .padding(12)
         .background(Color.cardBackground)
         .cornerRadius(8)
+    }
+}
+
+// MARK: - Shutdown Prompt
+
+struct ShutdownPromptView: View {
+    @ObservedObject var fuel: FuelState
+    @Binding var shutdownInput: String
+    let onCancel: () -> Void
+    let onConfirm: (Double) -> Void
+    
+    @State private var error = ""
+    @FocusState private var focused: Bool
+    
+    var isValid: Bool {
+        guard let reading = Double(shutdownInput) else { return false }
+        let last = fuel.lastReading ?? 0
+        return reading >= last
+    }
+    
+    var body: some View {
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                Text("SHUTDOWN")
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .tracking(3)
+                    .padding(.top, 20)
+                
+                VStack(spacing: 8) {
+                    Text("Current Totalizer Reading?")
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                    
+                    if let last = fuel.lastReading {
+                        Text("Last: \(String(format: "%.1f", last))")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.secondaryText.opacity(0.6))
+                    }
+                }
+                
+                TextField("0.0", text: $shutdownInput)
+                    .font(.system(size: 36, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .multilineTextAlignment(.center)
+                    .keyboardType(.decimalPad)
+                    .focused($focused)
+                    .frame(width: 200, height: 70)
+                    .background(Color.black.opacity(0.3))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(error.isEmpty ? (focused ? .accentText : Color.white.opacity(0.15)) : .fuelLow, lineWidth: 2)
+                    )
+                    .onChange(of: shutdownInput) {
+                        validateInput()
+                    }
+                
+                Text(error)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.fuelLow)
+                    .frame(height: 14)
+                
+                HStack(spacing: 16) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+                    .frame(width: 120, height: 44)
+                    .background(Color.buttonDisabled)
+                    .cornerRadius(8)
+                    
+                    Button("Shutdown") {
+                        if let reading = Double(shutdownInput), isValid {
+                            onConfirm(reading)
+                        }
+                    }
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.black)
+                    .frame(width: 120, height: 44)
+                    .background(isValid ? Color.accentText : Color.buttonDisabled)
+                    .cornerRadius(8)
+                    .disabled(!isValid)
+                }
+                .padding(.top, 10)
+                
+                Spacer()
+            }
+            .padding()
+        }
+        .onAppear {
+            focused = true
+        }
+    }
+    
+    func validateInput() {
+        error = ""
+        guard let reading = Double(shutdownInput) else { return }
+        let last = fuel.lastReading ?? 0
+        if reading < last {
+            error = "Must be ≥ \(String(format: "%.1f", last))"
+        }
     }
 }
 

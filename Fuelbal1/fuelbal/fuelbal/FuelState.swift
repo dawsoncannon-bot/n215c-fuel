@@ -263,7 +263,33 @@ class FuelState: ObservableObject {
         save()
     }
     
-    func endFlight() {
+    func shutdown(reading: Double) {
+        guard !fuelExhausted else {
+            isFlying = false
+            save()
+            return
+        }
+        
+        // Calculate fuel burned since last swap
+        let burned = swapLog.isEmpty ? reading : reading - (lastReading ?? 0)
+        
+        // Update current tank
+        tankBurned[currentTank, default: 0] += burned
+        
+        // Log shutdown as special entry (for reference)
+        let shutdownEntry = SwapEntry(
+            swapNumber: swapLog.count + 1,
+            tank: tankLabel(currentTank) + " (SHUTDOWN)",
+            totalizer: reading,
+            burned: burned
+        )
+        swapLog.append(shutdownEntry)
+        
+        isFlying = false
+        save()
+    }
+
+    func cancelFlight() {
         isFlying = false
         save()
     }
