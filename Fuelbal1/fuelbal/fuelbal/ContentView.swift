@@ -1,21 +1,16 @@
-//
-//  ContentView.swift
-//  fuelbal
-//
-//  Created by Dawson Cannon on 12/30/25.
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var fuel = FuelState()
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            // For now, always show Aircraft Selection
+            AircraftSelectionView()
         }
-        .padding()
+        .preferredColorScheme(.dark)
     }
 }
 

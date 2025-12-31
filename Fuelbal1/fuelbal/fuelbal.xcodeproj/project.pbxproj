@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		3A82B4042F0516F7009701A8 /* Aircraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A82B4032F0516F7009701A8 /* Aircraft.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		3A6393962F04ADB800B66EA8 /* fuelbal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = fuelbal.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A82B4032F0516F7009701A8 /* Aircraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Aircraft.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -32,6 +37,7 @@
 		3A63938D2F04ADB800B66EA8 = {
 			isa = PBXGroup;
 			children = (
+				3A82B4022F051694009701A8 /* Models */,
 				3A6393982F04ADB800B66EA8 /* fuelbal */,
 				3A6393972F04ADB800B66EA8 /* Products */,
 			);
@@ -43,6 +49,14 @@
 				3A6393962F04ADB800B66EA8 /* fuelbal.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		3A82B4022F051694009701A8 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				3A82B4032F0516F7009701A8 /* Aircraft.swift */,
+			);
+			path = Models;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -119,6 +133,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3A82B4042F0516F7009701A8 /* Aircraft.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

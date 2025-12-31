@@ -1,3 +1,10 @@
+//
+//  FlightView.swift
+//  fuelbal
+//
+//  Created by Dawson Cannon on 12/30/25.
+//
+
 import SwiftUI
 
 struct FlightView: View {
@@ -16,9 +23,9 @@ struct FlightView: View {
                 PhaseIndicator(fuel: fuel)
                 
                 // Reserve display
-                Text("SAFETY RESERVE: 0.9 GAL")
+                Text("SAFETY RESERVE: \(String(format: "%.1f", FuelState.safetyReserve)) GAL")
                     .font(.system(size: 9, weight: .regular, design: .monospaced))
-                    .foregroundColor(Color(hex: "444444"))
+                    .foregroundColor(.secondaryText)
                     .tracking(1)
                 
                 // Tank display
@@ -63,11 +70,11 @@ struct HeaderView: View {
                 Button(action: { fuel.endFlight() }) {
                     Text("✕")
                         .font(.system(size: 20))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondaryText)
                         .frame(width: 44, height: 44)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(hex: "444444"), lineWidth: 1)
+                                .stroke(Color.secondaryText, lineWidth: 1)
                         )
                 }
                 
@@ -78,7 +85,7 @@ struct HeaderView: View {
                         .frame(width: 44, height: 44)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(hex: "444444"), lineWidth: 1)
+                                .stroke(Color.secondaryText, lineWidth: 1)
                         )
                 }
                 .disabled(fuel.swapLog.isEmpty)
@@ -90,12 +97,12 @@ struct HeaderView: View {
             VStack(spacing: 4) {
                 Text(fuel.preset.rawValue)
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.secondaryText)
                     .tracking(3)
                 
                 Text(String(format: "%.1f GAL", fuel.totalRemaining))
                     .font(.system(size: 24, weight: .bold, design: .monospaced))
-                    .foregroundColor(Color(hex: "4ECDC4"))
+                    .foregroundColor(.accentText)
             }
             
             Spacer()
@@ -103,14 +110,14 @@ struct HeaderView: View {
             // Swap count
             Text("#\(fuel.swapLog.count + 1)")
                 .font(.system(size: 18, weight: .regular, design: .monospaced))
-                .foregroundColor(.gray)
+                .foregroundColor(.secondaryText)
                 .frame(width: 44, alignment: .trailing)
         }
         .padding(.bottom, 8)
         .overlay(
             Rectangle()
                 .frame(height: 1)
-                .foregroundColor(Color(hex: "222222")),
+                .foregroundColor(Color.white.opacity(0.1)),
             alignment: .bottom
         )
     }
@@ -132,18 +139,18 @@ struct PhaseIndicator: View {
     
     var colors: (text: Color, border: Color, bg: Color) {
         if fuel.fuelExhausted {
-            return (Color(hex: "FF6B6B"), Color(hex: "FF6B6B").opacity(0.33), Color(hex: "1a0a0a"))
+            return (.fuelLow, .fuelLow.opacity(0.33), .cardBackground.opacity(0.5))
         }
         if fuel.phase == .tips {
-            return (Color(hex: "FFE66D"), Color(hex: "FFE66D").opacity(0.2), Color(hex: "111111"))
+            return (.fuelActive, .fuelActive.opacity(0.2), .cardBackground)
         }
         if fuel.flightMode == .endurance {
-            return (Color(hex: "FFE66D"), Color(hex: "FFE66D").opacity(0.2), Color(hex: "111111"))
+            return (.fuelActive, .fuelActive.opacity(0.2), .cardBackground)
         }
         if fuel.flightMode == .balanced {
-            return (Color(hex: "4ECDC4"), Color(hex: "4ECDC4").opacity(0.27), Color(hex: "111111"))
+            return (.accentText, .accentText.opacity(0.27), .cardBackground)
         }
-        return (.gray, Color(hex: "222222"), Color(hex: "111111"))
+        return (.gray, Color.white.opacity(0.1), .cardBackground)
     }
     
     var body: some View {
@@ -202,9 +209,9 @@ struct TankGauge: View {
     var isLocked: Bool { tank.contains("Tip") && fuel.phase == .mains }
     
     var fillColor: Color {
-        if isLow || isEmpty { return Color(hex: "FF6B6B") }
-        if isActive { return Color(hex: "FFE66D") }
-        return Color(hex: "4ECDC4")
+        if isLow || isEmpty { return .fuelLow }
+        if isActive { return .fuelActive }
+        return .accentText
     }
     
     var opacity: Double {
@@ -217,13 +224,13 @@ struct TankGauge: View {
         VStack(spacing: 6) {
             Text(fuel.tankLabel(tank))
                 .font(.system(size: 9, weight: .regular, design: .monospaced))
-                .foregroundColor(.gray)
+                .foregroundColor(.secondaryText)
                 .tracking(1)
             
             // Bar
             ZStack(alignment: .bottom) {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(hex: "1a1a1a"))
+                    .fill(Color.black.opacity(0.3))
                     .frame(width: 28, height: 70)
                 
                 RoundedRectangle(cornerRadius: 2)
@@ -233,14 +240,14 @@ struct TankGauge: View {
             
             Text(String(format: "%.1f", remaining))
                 .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundColor(isLow || isEmpty ? Color(hex: "FF6B6B") : .white)
+                .foregroundColor(isLow || isEmpty ? .fuelLow : .primaryText)
         }
         .padding(10)
-        .background(Color(hex: "111111"))
+        .background(Color.cardBackground)
         .cornerRadius(8)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(isActive ? Color(hex: "FFE66D") : Color(hex: "333333"), lineWidth: 2)
+                .stroke(isActive ? .fuelActive : Color.white.opacity(0.15), lineWidth: 2)
         )
         .opacity(opacity)
         .frame(width: 65)
@@ -254,14 +261,14 @@ struct CenterIndicator: View {
     
     var currentColor: Color {
         if fuel.fuelExhausted { return .gray }
-        return fuel.isLeft(fuel.currentTank) ? Color(hex: "4ECDC4") : Color(hex: "FF6B6B")
+        return fuel.isLeft(fuel.currentTank) ? .accentText : .fuelLow
     }
     
     var body: some View {
         VStack(spacing: 0) {
             Text("BURNING")
                 .font(.system(size: 9, weight: .regular, design: .monospaced))
-                .foregroundColor(.gray)
+                .foregroundColor(.secondaryText)
                 .tracking(2)
             
             Text(fuel.fuelExhausted ? "--" : fuel.tankLabel(fuel.currentTank))
@@ -271,27 +278,27 @@ struct CenterIndicator: View {
             
             Rectangle()
                 .frame(height: 1)
-                .foregroundColor(Color(hex: "222222"))
+                .foregroundColor(Color.white.opacity(0.1))
                 .padding(.top, 10)
             
             Text("NEXT")
                 .font(.system(size: 8, weight: .regular, design: .monospaced))
-                .foregroundColor(.gray)
+                .foregroundColor(.secondaryText)
                 .tracking(1)
                 .padding(.top, 8)
             
             Text(fuel.nextTank != nil ? fuel.tankLabel(fuel.nextTank!) : "--")
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .foregroundColor(Color(hex: "FFE66D"))
+                .foregroundColor(.fuelActive)
                 .padding(.top, 2)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(hex: "111111"))
+        .background(Color.cardBackground)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(hex: "222222"), lineWidth: 1)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
         .frame(minWidth: 110)
     }
@@ -306,20 +313,20 @@ struct LastReadingBox: View {
         VStack(spacing: 6) {
             Text("LAST READING")
                 .font(.system(size: 9, weight: .regular, design: .monospaced))
-                .foregroundColor(.gray)
+                .foregroundColor(.secondaryText)
                 .tracking(2)
             
             Text(fuel.lastReading != nil ? String(format: "%.1f", fuel.lastReading!) : "--")
                 .font(.system(size: 28, weight: .bold, design: .monospaced))
-                .foregroundColor(.white)
+                .foregroundColor(.primaryText)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(Color(hex: "111111"))
+        .background(Color.cardBackground)
         .cornerRadius(10)
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color(hex: "222222"), lineWidth: 1)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
     }
 }
@@ -388,36 +395,32 @@ struct TargetBox: View {
     
     var labelColor: Color {
         switch style {
-        case .balanced: return .gray
-        case .endurance: return .gray
-        case .warning: return Color(hex: "FF6B6B")
-        case .zeroFuel: return Color(hex: "FF6B6B")
+        case .balanced, .endurance: return .gray
+        case .warning, .zeroFuel: return .fuelLow
         }
     }
     
     var valueColor: Color {
         switch style {
-        case .balanced: return Color(hex: "4ECDC4")
-        case .endurance: return Color(hex: "FFE66D")
-        case .warning: return Color(hex: "FF6B6B")
-        case .zeroFuel: return Color(hex: "FF6B6B")
+        case .balanced: return .accentText
+        case .endurance: return .fuelActive
+        case .warning, .zeroFuel: return .fuelLow
         }
     }
     
     var borderColor: Color {
         switch style {
-        case .balanced: return Color(hex: "4ECDC4")
-        case .endurance: return Color(hex: "FFE66D").opacity(0.33)
-        case .warning: return Color(hex: "FF6B6B")
-        case .zeroFuel: return Color(hex: "FF6B6B")
+        case .balanced: return .accentText
+        case .endurance: return .fuelActive.opacity(0.33)
+        case .warning, .zeroFuel: return .fuelLow
         }
     }
     
     var bgColor: Color {
         switch style {
-        case .warning: return Color(hex: "1a0a0a")
-        case .zeroFuel: return Color(hex: "2a0a0a")
-        default: return Color(hex: "111111")
+        case .warning: return .cardBackground.opacity(0.5)
+        case .zeroFuel: return Color.red.opacity(0.1)
+        default: return .cardBackground
         }
     }
     
@@ -462,29 +465,29 @@ struct InputSection: View {
         VStack(spacing: 10) {
             Text("TOTALIZER USED")
                 .font(.system(size: 11, weight: .regular, design: .monospaced))
-                .foregroundColor(.gray)
+                .foregroundColor(.secondaryText)
                 .tracking(2)
             
             TextField("0.0", text: $totalizerInput)
                 .font(.system(size: 32, weight: .bold, design: .monospaced))
-                .foregroundColor(.white)
+                .foregroundColor(.primaryText)
                 .multilineTextAlignment(.center)
                 .keyboardType(.decimalPad)
                 .focused($inputFocused)
                 .frame(width: 180, height: 60)
-                .background(Color(hex: "1a1a1a"))
+                .background(Color.black.opacity(0.3))
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(inputError.isEmpty ? (inputFocused ? Color(hex: "4ECDC4") : Color(hex: "333333")) : Color(hex: "FF6B6B"), lineWidth: 2)
+                        .stroke(inputError.isEmpty ? (inputFocused ? .accentText : Color.white.opacity(0.15)) : .fuelLow, lineWidth: 2)
                 )
-                .onChange(of: totalizerInput) { _ in
+                .onChange(of: totalizerInput) {
                     validateInput()
                 }
             
             Text(inputError)
                 .font(.system(size: 10, weight: .regular, design: .monospaced))
-                .foregroundColor(Color(hex: "FF6B6B"))
+                .foregroundColor(.fuelLow)
                 .frame(height: 14)
             
             Button(action: logSwap) {
@@ -493,7 +496,7 @@ struct InputSection: View {
                     .tracking(2)
                     .foregroundColor(canLog ? .black : .gray)
                     .frame(width: 200, height: 52)
-                    .background(canLog ? Color(hex: "4ECDC4") : Color(hex: "333333"))
+                    .background(canLog ? Color.accentText : Color.buttonDisabled)
                     .cornerRadius(8)
             }
             .disabled(!canLog)
@@ -532,25 +535,25 @@ struct HistoryView: View {
             ForEach(fuel.swapLog.suffix(4).reversed()) { entry in
                 HStack(spacing: 12) {
                     Text("#\(entry.swapNumber)")
-                        .foregroundColor(Color(hex: "444444"))
+                        .foregroundColor(.secondaryText)
                         .frame(width: 24, alignment: .leading)
                     
                     Text(entry.tank)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondaryText)
                         .frame(width: 55, alignment: .leading)
                     
                     Text(String(format: "%.1f", entry.totalizer))
-                        .foregroundColor(Color(hex: "888888"))
+                        .foregroundColor(.secondaryText)
                         .frame(width: 45, alignment: .trailing)
                     
                     Text(String(format: "+%.1f", entry.burned))
-                        .foregroundColor(Color(hex: "4ECDC4"))
+                        .foregroundColor(.accentText)
                 }
                 .font(.system(size: 12, weight: .regular, design: .monospaced))
             }
         }
         .padding(12)
-        .background(Color(hex: "111111"))
+        .background(Color.cardBackground)
         .cornerRadius(8)
     }
 }
