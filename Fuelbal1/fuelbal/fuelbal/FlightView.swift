@@ -19,7 +19,19 @@ struct FlightView: View {
         ScrollView {
             VStack(spacing: 12) {
                 // Header
-                HeaderView(fuel: fuel, onShutdown: { showShutdownPrompt = true })
+                HeaderView(
+                    fuel: fuel,
+                    onExit: {
+                        fuel.isFlying = false
+                    },
+                    onEngineToggle: {
+                        if fuel.engineRunning {
+                            showShutdownPrompt = true
+                        } else {
+                            fuel.startEngine()
+                        }
+                    }
+                )
                 
                 // Phase indicator
                 PhaseIndicator(fuel: fuel)
@@ -39,13 +51,15 @@ struct FlightView: View {
                 // Swap targets
                 SwapTargets(fuel: fuel)
                 
-                // Input section
+                // Input section (disabled when engine off)
                 InputSection(
                     fuel: fuel,
                     totalizerInput: $totalizerInput,
                     inputError: $inputError,
                     inputFocused: $inputFocused
                 )
+                .disabled(!fuel.engineRunning)
+                .opacity(fuel.engineRunning ? 1.0 : 0.5)
                 
                 // History
                 if !fuel.swapLog.isEmpty {
@@ -55,7 +69,9 @@ struct FlightView: View {
             .padding()
         }
         .onTapGesture {
-            inputFocused = false
+            if fuel.engineRunning {
+                inputFocused = false
+            }
         }
         .sheet(isPresented: $showShutdownPrompt) {
             ShutdownPromptView(
@@ -81,32 +97,47 @@ struct FlightView: View {
 
 struct HeaderView: View {
     @ObservedObject var fuel: FuelState
-    let onShutdown: () -> Void
+    let onExit: () -> Void
+    let onEngineToggle: () -> Void
     
     var body: some View {
         HStack {
             // Left buttons
             HStack(spacing: 8) {
-                Button(action: onShutdown) {
-                    Text("✕")
-                        .font(.system(size: 20))
-                        .foregroundColor(.secondaryText)
-                        .frame(width: 44, height: 44)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondaryText, lineWidth: 1)
-                        )
+                // Exit button (only active when engine off)
+                Button(action: onExit) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("BACK")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .tracking(1)
+                    }
+                    .foregroundColor(fuel.engineRunning ? .gray.opacity(0.3) : .accentText)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(fuel.engineRunning ? Color.gray.opacity(0.3) : Color.accentText, lineWidth: 1)
+                    )
                 }
+                .disabled(fuel.engineRunning)
                 
                 Button(action: { fuel.undoLastSwap() }) {
-                    Text("↩")
-                        .font(.system(size: 18))
-                        .foregroundColor(fuel.swapLog.isEmpty ? Color.gray.opacity(0.3) : .gray)
-                        .frame(width: 44, height: 44)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondaryText, lineWidth: 1)
-                        )
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("UNDO")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .tracking(1)
+                    }
+                    .foregroundColor(fuel.swapLog.isEmpty ? Color.gray.opacity(0.3) : .secondaryText)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(fuel.swapLog.isEmpty ? Color.gray.opacity(0.3) : Color.secondaryText, lineWidth: 1)
+                    )
                 }
                 .disabled(fuel.swapLog.isEmpty)
             }
@@ -115,10 +146,10 @@ struct HeaderView: View {
             
             // Center info
             VStack(spacing: 4) {
-                Text(fuel.preset.rawValue)
+                Text("LEG #\(fuel.legNumber) • \(fuel.preset.rawValue)")
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
                     .foregroundColor(.secondaryText)
-                    .tracking(3)
+                    .tracking(2)
                 
                 Text(String(format: "%.1f GAL", fuel.totalRemaining))
                     .font(.system(size: 24, weight: .bold, design: .monospaced))
@@ -127,11 +158,20 @@ struct HeaderView: View {
             
             Spacer()
             
-            // Swap count
-            Text("#\(fuel.swapLog.count + 1)")
-                .font(.system(size: 18, weight: .regular, design: .monospaced))
-                .foregroundColor(.secondaryText)
-                .frame(width: 44, alignment: .trailing)
+            // Right side - Engine start/stop button
+            Button(action: onEngineToggle) {
+                VStack(spacing: 2) {
+                    Image(systemName: fuel.engineRunning ? "power" : "key.fill")
+                        .font(.system(size: 16, weight: .bold))
+                    Text(fuel.engineRunning ? "STOP" : "START")
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .tracking(1)
+                }
+                .foregroundColor(fuel.engineRunning ? .white : .black)
+                .frame(width: 60, height: 44)
+                .background(fuel.engineRunning ? Color.red : Color.green)
+                .cornerRadius(8)
+            }
         }
         .padding(.bottom, 8)
         .overlay(
@@ -195,9 +235,9 @@ struct TankDisplay: View {
     @ObservedObject var fuel: FuelState
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .bottom, spacing: 8) {
             // Left wing
-            HStack(spacing: 8) {
+            HStack(alignment: .bottom, spacing: 8) {
                 TankGauge(fuel: fuel, tank: "lTip")
                 TankGauge(fuel: fuel, tank: "lMain")
             }
@@ -206,7 +246,7 @@ struct TankDisplay: View {
             CenterIndicator(fuel: fuel)
             
             // Right wing
-            HStack(spacing: 8) {
+            HStack(alignment: .bottom, spacing: 8) {
                 TankGauge(fuel: fuel, tank: "rMain")
                 TankGauge(fuel: fuel, tank: "rTip")
             }
@@ -240,6 +280,10 @@ struct TankGauge: View {
         return 1.0
     }
     
+    var gaugeHeight: CGFloat {
+        maxFuel == 17 ? 47 : 70  // Proportional: 17/25 = 0.68, so 47/70 = 0.67
+    }
+    
     var body: some View {
         VStack(spacing: 6) {
             Text(fuel.tankLabel(tank))
@@ -251,11 +295,11 @@ struct TankGauge: View {
             ZStack(alignment: .bottom) {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.black.opacity(0.3))
-                    .frame(width: 28, height: 70)
+                    .frame(width: 28, height: gaugeHeight)
                 
                 RoundedRectangle(cornerRadius: 2)
                     .fill(fillColor)
-                    .frame(width: 28, height: CGFloat(fillPercent * 70))
+                    .frame(width: 28, height: gaugeHeight * fillPercent)
             }
             
             Text(String(format: "%.1f", remaining))
@@ -281,7 +325,14 @@ struct CenterIndicator: View {
     
     var currentColor: Color {
         if fuel.fuelExhausted { return .gray }
+        if !fuel.engineRunning { return .gray }
         return fuel.isLeft(fuel.currentTank) ? .accentText : .fuelLow
+    }
+    
+    var displayLabel: String {
+        if !fuel.engineRunning { return "OFF" }
+        if fuel.fuelExhausted { return "--" }
+        return fuel.tankLabel(fuel.currentTank)
     }
     
     var body: some View {
@@ -291,7 +342,7 @@ struct CenterIndicator: View {
                 .foregroundColor(.secondaryText)
                 .tracking(2)
             
-            Text(fuel.fuelExhausted ? "--" : fuel.tankLabel(fuel.currentTank))
+            Text(displayLabel)
                 .font(.system(size: 20, weight: .bold, design: .monospaced))
                 .foregroundColor(currentColor)
                 .padding(.top, 4)
@@ -361,11 +412,34 @@ struct SwapTargets: View {
             if fuel.fuelExhausted {
                 TargetBox(label: "COMPLETE", value: "--", style: .balanced)
             } else if fuel.swapLog.isEmpty {
-                // First swap - climbout
-                TargetBox(label: "SWAP AT", value: "7.0", style: .endurance)
+                // First swap - climbout (but check if tank is small)
+                let remaining = fuel.remaining(fuel.currentTank)
+                let available = remaining - FuelState.safetyReserve
+                
+                if available < 7.0 {
+                    // Tank doesn't have enough for full 7.0 gal climbout
+                    if let last = fuel.lastReading {
+                        TargetBox(label: "⚠ DO NOT EXCEED", value: String(format: "%.1f", last + available), style: .warning)
+                    } else {
+                        // No reading yet, show max available
+                        TargetBox(label: "⚠ DO NOT EXCEED", value: String(format: "%.1f", available), style: .warning)
+                    }
+                } else if remaining < 10 {
+                    // Between 7-10 gallons, show do not exceed
+                    if let last = fuel.lastReading {
+                        TargetBox(label: "⚠ DO NOT EXCEED", value: String(format: "%.1f", last + available), style: .warning)
+                    } else {
+                        TargetBox(label: "⚠ DO NOT EXCEED", value: String(format: "%.1f", available), style: .warning)
+                    }
+                } else {
+                    // Tank has enough for normal 7.0 gal climbout
+                    TargetBox(label: "SWAP AT", value: "7.0", style: .endurance)
+                }
             } else if fuel.swapLog.count == 1 && fuel.phase == .mains && fuel.preset == .topoff && fuel.flightMode == nil {
-                // Swap 2 for topoff - show both options
-                if let targets = fuel.calcTargets() {
+                // Swap 2 for topoff - show both options (unless tank too small)
+                if fuel.remaining(fuel.currentTank) < 10, let max = fuel.maxTarget {
+                    TargetBox(label: "⚠ DO NOT EXCEED", value: String(format: "%.1f", max), style: .warning)
+                } else if let targets = fuel.calcTargets() {
                     HStack(spacing: 16) {
                         TargetBox(label: "BALANCED", value: String(format: "%.1f", targets.balanced), style: .balanced)
                         TargetBox(label: "ENDURANCE", value: String(format: "%.1f", targets.endurance), style: .endurance)
@@ -379,6 +453,9 @@ struct SwapTargets: View {
                 TargetBox(label: "🛑 ZERO FUEL", value: String(format: "%.1f", max), style: .zeroFuel)
             } else if fuel.isLastBurnForTank, let max = fuel.maxTarget {
                 // Do not exceed - last burn for this tank
+                TargetBox(label: "⚠ DO NOT EXCEED", value: String(format: "%.1f", max), style: .warning)
+            } else if fuel.remaining(fuel.currentTank) < 10, let max = fuel.maxTarget {
+                // Tank has less than 10 gallons - DO NOT EXCEED mode
                 TargetBox(label: "⚠ DO NOT EXCEED", value: String(format: "%.1f", max), style: .warning)
             } else if fuel.phase == .tips {
                 // Tips phase
