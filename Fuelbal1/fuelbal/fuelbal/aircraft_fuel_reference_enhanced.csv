@@ -1,0 +1,15 @@
+Manufacturer,Model,Variant,ICAO,Fuel Type,L Tip,L Main,Center,R Main,R Tip,Aft,Total Usable,Fuel Selector,Aux/Tip/Transfer Behavior,Special Notes
+Cessna,172 Skyhawk,Late Models (S),C172,AVGAS 100LL,,26.5,,26.5,,,53,BOTH,Standard main tanks only,BOTH normally used; not true crossfeed. Earlier models differ.
+Cessna,182 Skylane,Later Models,C182,AVGAS 100LL,,44,,44,,,88,BOTH,Standard main tanks only,BOTH available; some POHs specify BOTH for normal ops.
+Cessna,210 Centurion,,C210,AVGAS 100LL,,45,,44,,,89,L/R/OFF,⚠️ AUX TANKS TRANSFER (often to right),No BOTH. Aux tanks complicate fuel management - verify transfer behavior.
+Piper,PA-28-140 Cherokee,,PA28,AVGAS 100LL,,18,,18,,,36,L/R/OFF,Standard main tanks only,No BOTH. Small unusable fuel varies by year - verify POH.
+Piper,PA-28-180 Cherokee,,PA28,AVGAS 100LL,,24,,24,,,48,L/R/OFF,Standard main tanks only,No BOTH. Verify early vs later POHs for exact usable.
+Piper,PA-28-181 Archer,,PA28,AVGAS 100LL,,24,,24,,,48,L/R/OFF,Standard main tanks only,No BOTH. Very consistent across fleet.
+Piper,PA-28R-180 Arrow I,Hershey Bar Wing,PA28,AVGAS 100LL,,24,,24,,,48,L/R/OFF,Standard main tanks only,No BOTH. Same fuel logic as other PA-28s.
+Piper,PA-28R-200 Arrow II,Hershey Bar Wing,PA28,AVGAS 100LL,,24,,24,,,48,L/R/OFF,Standard main tanks only,No BOTH. Wing planform does not change fuel logic.
+Piper,PA-32-260 Cherokee Six,84 Gal (4 Tanks),PA32,AVGAS 100LL,17,25,,25,17,,84,Individual Tank,⚠️ TIP TANKS - each tank individually selected,No BOTH. Selector chooses individual tank. Must manage 4 tanks separately.
+Piper,PA-32 Saratoga,Fixed Gear,PA32,AVGAS 100LL,,51,,51,,,102,L/R/OFF,Main + bladder per side (integrated),No BOTH. Some sources quote 107 total with ~5 unusable.
+Piper,PA-32R-300 Lance,Retractable,PA32,AVGAS 100LL,,47,,47,,,94,L/R/OFF,Main + bladder per side (integrated),No BOTH. Retractable gear version of PA-32.
+Mooney,M20C,,M20C,AVGAS 100LL,,24,,24,,,48,L/R/OFF,Standard main tanks only,No BOTH. Some docs list 52 total with ~4 unusable.
+Mooney,M20J,,M20J,AVGAS 100LL,,32,,32,,,64,L/R/OFF,Standard main tanks only,No BOTH. Very consistent across J models.
+Mooney,M20R Ovation,,M20R,AVGAS 100LL,,44.5,,44.5,,,89,L/R/OFF,Standard main tanks only,No BOTH. Confirm exact usable per POH and mods.

@@ -14,6 +14,7 @@ struct FlightView: View {
     @FocusState private var inputFocused: Bool
     @State private var showShutdownPrompt = false
     @State private var shutdownInput = ""
+    @State private var timer: Timer?  // NEW: Timer for updating display
     
     var body: some View {
         ScrollView {
@@ -33,6 +34,11 @@ struct FlightView: View {
                     }
                 )
                 
+                // NEW: Leg Timer Display
+                if fuel.engineRunning || fuel.currentLegTime > 0 {
+                    LegTimerView(fuel: fuel)
+                }
+                
                 // Phase indicator
                 PhaseIndicator(fuel: fuel)
                 
@@ -45,13 +51,13 @@ struct FlightView: View {
                 // Tank display
                 TankDisplay(fuel: fuel)
                 
-                // Last reading
-                LastReadingBox(fuel: fuel)
+                // Last reading and swap targets side by side
+                HStack(spacing: 16) {
+                    LastReadingBox(fuel: fuel)
+                    SwapTargets(fuel: fuel)
+                }
                 
-                // Swap targets
-                SwapTargets(fuel: fuel)
-                
-                // Input section (disabled when engine off)
+                // Input section with undo button (disabled when engine off)
                 InputSection(
                     fuel: fuel,
                     totalizerInput: $totalizerInput,
@@ -73,6 +79,14 @@ struct FlightView: View {
                 inputFocused = false
             }
         }
+        .onAppear {
+            // Start timer to update leg time display
+            startTimer()
+        }
+        .onDisappear {
+            // Stop timer when view disappears
+            stopTimer()
+        }
         .sheet(isPresented: $showShutdownPrompt) {
             ShutdownPromptView(
                 fuel: fuel,
@@ -91,6 +105,23 @@ struct FlightView: View {
             .presentationDragIndicator(.visible)
         }
     }
+    
+    // NEW: Timer management
+    private func startTimer() {
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            updateLegTime()
+        }
+    }
+    
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+    
+    private func updateLegTime() {
+        guard fuel.engineRunning, let startTime = fuel.legTimerStart else { return }
+        fuel.currentLegTime = Date().timeIntervalSince(startTime)
+    }
 }
 
 // MARK: - Header
@@ -102,45 +133,24 @@ struct HeaderView: View {
     
     var body: some View {
         HStack {
-            // Left buttons
-            HStack(spacing: 8) {
-                // Exit button (only active when engine off)
-                Button(action: onExit) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 12, weight: .bold))
-                        Text("BACK")
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            .tracking(1)
-                    }
-                    .foregroundColor(fuel.engineRunning ? .gray.opacity(0.3) : .accentText)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(fuel.engineRunning ? Color.gray.opacity(0.3) : Color.accentText, lineWidth: 1)
-                    )
+            // Back button (only active when engine off)
+            Button(action: onExit) {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("BACK")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .tracking(1)
                 }
-                .disabled(fuel.engineRunning)
-                
-                Button(action: { fuel.undoLastSwap() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.uturn.backward")
-                            .font(.system(size: 11, weight: .bold))
-                        Text("UNDO")
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            .tracking(1)
-                    }
-                    .foregroundColor(fuel.swapLog.isEmpty ? Color.gray.opacity(0.3) : .secondaryText)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(fuel.swapLog.isEmpty ? Color.gray.opacity(0.3) : Color.secondaryText, lineWidth: 1)
-                    )
-                }
-                .disabled(fuel.swapLog.isEmpty)
+                .foregroundColor(fuel.engineRunning ? .gray.opacity(0.3) : .accentText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(fuel.engineRunning ? Color.gray.opacity(0.3) : Color.accentText, lineWidth: 1)
+                )
             }
+            .disabled(fuel.engineRunning)
             
             Spacer()
             
@@ -234,12 +244,56 @@ struct PhaseIndicator: View {
 struct TankDisplay: View {
     @ObservedObject var fuel: FuelState
     
+    // Define proper tank order
+    private func tankOrder(_ key: String) -> Int {
+        switch key {
+        case "lTip": return 0
+        case "lMain": return 1
+        case "center": return 2
+        case "rMain": return 3
+        case "rTip": return 4
+        case "aft": return 5
+        default: return 999
+        }
+    }
+    
+    var leftTanks: [String] {
+        guard let aircraft = fuel.currentAircraft else {
+            return ["lMain", "lTip"]
+        }
+        return aircraft.tanks
+            .filter { $0.position.key.hasPrefix("l") }
+            .sorted { tankOrder($0.position.key) < tankOrder($1.position.key) }
+            .map { $0.position.key }
+    }
+    
+    var rightTanks: [String] {
+        guard let aircraft = fuel.currentAircraft else {
+            return ["rMain", "rTip"]
+        }
+        return aircraft.tanks
+            .filter { $0.position.key.hasPrefix("r") }
+            .sorted { tankOrder($0.position.key) < tankOrder($1.position.key) }
+            .map { $0.position.key }
+    }
+    
+    var centerTanks: [String] {
+        guard let aircraft = fuel.currentAircraft else {
+            return []
+        }
+        return aircraft.tanks
+            .filter { $0.position.key.hasPrefix("c") || $0.position.key.hasPrefix("a") }  // center or aft
+            .sorted { tankOrder($0.position.key) < tankOrder($1.position.key) }
+            .map { $0.position.key }
+    }
+    
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             // Left wing
             HStack(alignment: .bottom, spacing: 8) {
-                TankGauge(fuel: fuel, tank: "lTip")
-                TankGauge(fuel: fuel, tank: "lMain")
+                ForEach(leftTanks, id: \.self) { tank in
+                    TankGauge(fuel: fuel, tank: tank)
+                }
             }
             
             // Center indicator
@@ -247,8 +301,18 @@ struct TankDisplay: View {
             
             // Right wing
             HStack(alignment: .bottom, spacing: 8) {
-                TankGauge(fuel: fuel, tank: "rMain")
-                TankGauge(fuel: fuel, tank: "rTip")
+                ForEach(rightTanks, id: \.self) { tank in
+                    TankGauge(fuel: fuel, tank: tank)
+                }
+            }
+            
+            // Center/Aft tanks (if any) - shown after right wing
+            if !centerTanks.isEmpty {
+                HStack(alignment: .bottom, spacing: 8) {
+                    ForEach(centerTanks, id: \.self) { tank in
+                        TankGauge(fuel: fuel, tank: tank)
+                    }
+                }
             }
         }
     }
@@ -261,7 +325,18 @@ struct TankGauge: View {
     let tank: String
     
     var remaining: Double { fuel.remaining(tank) }
-    var maxFuel: Double { tank.contains("Tip") ? 17.0 : 25.0 }
+    
+    var maxFuel: Double {
+        // Get from current aircraft if available
+        if let aircraft = fuel.currentAircraft,
+           let tankPosition = TankPosition.allCases.first(where: { $0.key == tank }),
+           let fuelTank = aircraft.tanks.first(where: { $0.position == tankPosition }) {
+            return fuelTank.capacity
+        }
+        // Fallback to N215C defaults
+        return tank.contains("Tip") ? 17.0 : 25.0
+    }
+    
     var fillPercent: Double { min(1, max(0, remaining / maxFuel)) }
     var isActive: Bool { fuel.currentTank == tank && !fuel.fuelExhausted }
     var isLow: Bool { remaining <= FuelState.lowWarn && remaining > 0 }
@@ -281,7 +356,12 @@ struct TankGauge: View {
     }
     
     var gaugeHeight: CGFloat {
-        maxFuel == 17 ? 47 : 70  // Proportional: 17/25 = 0.68, so 47/70 = 0.67
+        // Scale height proportionally to capacity
+        // Base: 25 gal = 70 points
+        let baseCapacity = 25.0
+        let baseHeight = 70.0
+        let scaledHeight = (maxFuel / baseCapacity) * baseHeight
+        return CGFloat(min(max(scaledHeight, 40), 90))  // Clamp between 40-90 points
     }
     
     var body: some View {
@@ -391,6 +471,7 @@ struct LastReadingBox: View {
                 .font(.system(size: 28, weight: .bold, design: .monospaced))
                 .foregroundColor(.primaryText)
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .background(Color.cardBackground)
@@ -440,9 +521,9 @@ struct SwapTargets: View {
                 if fuel.remaining(fuel.currentTank) < 10, let max = fuel.maxTarget {
                     TargetBox(label: "⚠ DO NOT EXCEED", value: String(format: "%.1f", max), style: .warning)
                 } else if let targets = fuel.calcTargets() {
-                    HStack(spacing: 16) {
-                        TargetBox(label: "BALANCED", value: String(format: "%.1f", targets.balanced), style: .balanced)
-                        TargetBox(label: "ENDURANCE", value: String(format: "%.1f", targets.endurance), style: .endurance)
+                    VStack(spacing: 8) {
+                        TargetBox(label: "BALANCED", value: String(format: "%.1f", targets.balanced), style: .balanced, compact: true)
+                        TargetBox(label: "ENDURANCE", value: String(format: "%.1f", targets.endurance), style: .endurance, compact: true)
                     }
                     .onAppear {
                         fuel.swap2Targets = targets
@@ -476,6 +557,7 @@ struct SwapTargets: View {
                 TargetBox(label: "SWAP AT", value: "--", style: .balanced)
             }
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -489,6 +571,7 @@ struct TargetBox: View {
     let label: String
     let value: String
     let style: TargetStyle
+    var compact: Bool = false
     
     var labelColor: Color {
         switch style {
@@ -522,25 +605,25 @@ struct TargetBox: View {
     }
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: compact ? 4 : 8) {
             Text(label)
-                .font(.system(size: style == .zeroFuel ? 11 : 9, weight: (style == .warning || style == .zeroFuel) ? .bold : .regular, design: .monospaced))
+                .font(.system(size: compact ? 8 : (style == .zeroFuel ? 11 : 9), weight: (style == .warning || style == .zeroFuel) ? .bold : .regular, design: .monospaced))
                 .foregroundColor(labelColor)
                 .tracking(2)
             
             Text(value)
-                .font(.system(size: style == .zeroFuel ? 36 : 32, weight: .bold, design: .monospaced))
+                .font(.system(size: compact ? 22 : (style == .zeroFuel ? 36 : 32), weight: .bold, design: .monospaced))
                 .foregroundColor(valueColor)
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, compact ? 12 : 24)
+        .padding(.vertical, compact ? 8 : 14)
         .background(bgColor)
         .cornerRadius(10)
         .overlay(
             RoundedRectangle(cornerRadius: 10)
                 .stroke(borderColor, lineWidth: style == .zeroFuel ? 2 : 1)
         )
-        .frame(minWidth: style == .zeroFuel ? 200 : (style == .warning ? 180 : 140))
     }
 }
 
@@ -560,43 +643,66 @@ struct InputSection: View {
     
     var body: some View {
         VStack(spacing: 10) {
+            // Undo button
+            Button(action: { fuel.undoLastSwap() }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("UNDO")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .tracking(1)
+                }
+                .foregroundColor(fuel.swapLog.isEmpty ? Color.gray.opacity(0.3) : .secondaryText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(fuel.swapLog.isEmpty ? Color.gray.opacity(0.3) : Color.secondaryText, lineWidth: 1)
+                )
+            }
+            .disabled(fuel.swapLog.isEmpty)
+            
             Text("TOTALIZER USED")
                 .font(.system(size: 11, weight: .regular, design: .monospaced))
                 .foregroundColor(.secondaryText)
                 .tracking(2)
             
-            TextField("0.0", text: $totalizerInput)
-                .font(.system(size: 32, weight: .bold, design: .monospaced))
-                .foregroundColor(.primaryText)
-                .multilineTextAlignment(.center)
-                .keyboardType(.decimalPad)
-                .focused($inputFocused)
-                .frame(width: 180, height: 60)
-                .background(Color.black.opacity(0.3))
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(inputError.isEmpty ? (inputFocused ? .accentText : Color.white.opacity(0.15)) : .fuelLow, lineWidth: 2)
-                )
-                .onChange(of: totalizerInput) {
-                    validateInput()
+            // Input and button side by side
+            HStack(spacing: 12) {
+                TextField("0.0", text: $totalizerInput)
+                    .font(.system(size: 32, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .multilineTextAlignment(.center)
+                    .keyboardType(.decimalPad)
+                    .focused($inputFocused)
+                    .frame(height: 60)
+                    .background(Color.black.opacity(0.3))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(inputError.isEmpty ? (inputFocused ? .accentText : Color.white.opacity(0.15)) : .fuelLow, lineWidth: 2)
+                    )
+                    .onChange(of: totalizerInput) {
+                        validateInput()
+                    }
+                
+                Button(action: logSwap) {
+                    Text("LOG\nSWAP")
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .tracking(1)
+                        .foregroundColor(canLog ? .black : .gray)
+                        .frame(width: 80, height: 60)
+                        .background(canLog ? Color.accentText : Color.buttonDisabled)
+                        .cornerRadius(8)
                 }
+                .disabled(!canLog)
+            }
+            .padding(.horizontal, 12)
             
             Text(inputError)
                 .font(.system(size: 10, weight: .regular, design: .monospaced))
                 .foregroundColor(.fuelLow)
                 .frame(height: 14)
-            
-            Button(action: logSwap) {
-                Text("LOG SWAP")
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .tracking(2)
-                    .foregroundColor(canLog ? .black : .gray)
-                    .frame(width: 200, height: 52)
-                    .background(canLog ? Color.accentText : Color.buttonDisabled)
-                    .cornerRadius(8)
-            }
-            .disabled(!canLog)
         }
     }
     
@@ -628,16 +734,54 @@ struct HistoryView: View {
     @ObservedObject var fuel: FuelState
     
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 8) {
+            Text("RECENT SWAPS")
+                .font(.system(size: 9, weight: .regular, design: .monospaced))
+                .foregroundColor(.secondaryText)
+                .tracking(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            // Header row
+            HStack(spacing: 8) {
+                Text("#")
+                    .foregroundColor(.secondaryText.opacity(0.6))
+                    .frame(width: 20, alignment: .leading)
+                
+                Text("TANK")
+                    .foregroundColor(.secondaryText.opacity(0.6))
+                    .frame(width: 65, alignment: .leading)
+                
+                Text("TIME")
+                    .foregroundColor(.secondaryText.opacity(0.6))
+                    .frame(width: 70, alignment: .trailing)
+                
+                Text("TOTAL")
+                    .foregroundColor(.secondaryText.opacity(0.6))
+                    .frame(width: 45, alignment: .trailing)
+                
+                Text("BURN")
+                    .foregroundColor(.secondaryText.opacity(0.6))
+                    .frame(width: 40, alignment: .trailing)
+            }
+            .font(.system(size: 8, weight: .regular, design: .monospaced))
+            .padding(.horizontal, 4)
+            
+            Divider()
+                .background(Color.white.opacity(0.2))
+            
             ForEach(fuel.swapLog.suffix(4).reversed()) { entry in
-                HStack(spacing: 12) {
+                HStack(spacing: 8) {
                     Text("#\(entry.swapNumber)")
                         .foregroundColor(.secondaryText)
-                        .frame(width: 24, alignment: .leading)
+                        .frame(width: 20, alignment: .leading)
                     
                     Text(entry.tank)
                         .foregroundColor(.secondaryText)
-                        .frame(width: 55, alignment: .leading)
+                        .frame(width: 65, alignment: .leading)
+                    
+                    Text(entry.formattedLegTime)
+                        .foregroundColor(.fuelActive)
+                        .frame(width: 70, alignment: .trailing)
                     
                     Text(String(format: "%.1f", entry.totalizer))
                         .foregroundColor(.secondaryText)
@@ -645,13 +789,53 @@ struct HistoryView: View {
                     
                     Text(String(format: "+%.1f", entry.burned))
                         .foregroundColor(.accentText)
+                        .frame(width: 40, alignment: .trailing)
                 }
-                .font(.system(size: 12, weight: .regular, design: .monospaced))
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .padding(.horizontal, 4)
             }
         }
         .padding(12)
         .background(Color.cardBackground)
         .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Leg Timer View
+
+struct LegTimerView: View {
+    @ObservedObject var fuel: FuelState
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            Text("LEG TIME")
+                .font(.system(size: 9, weight: .regular, design: .monospaced))
+                .foregroundColor(.secondaryText)
+                .tracking(2)
+            
+            Text(fuel.formattedLegTime)
+                .font(.system(size: 32, weight: .bold, design: .monospaced))
+                .foregroundColor(fuel.engineRunning ? .fuelActive : .secondaryText)
+            
+            if !fuel.engineRunning && fuel.currentLegTime > 0 {
+                Text("ENGINE STOPPED")
+                    .font(.system(size: 8, weight: .regular, design: .monospaced))
+                    .foregroundColor(.secondaryText.opacity(0.6))
+                    .tracking(1)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(Color.cardBackground)
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(fuel.engineRunning ? Color.fuelActive.opacity(0.3) : Color.white.opacity(0.1), lineWidth: fuel.engineRunning ? 2 : 1)
+        )
     }
 }
 

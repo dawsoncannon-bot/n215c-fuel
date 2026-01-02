@@ -12,8 +12,10 @@ struct FuelStop: Codable, Identifiable {
     var totalCost: Double?
     var location: String?  // Optional airport code
     var notes: String?
+    var postFuelLevels: [String: Double]?  // NEW: Actual levels after fueling (inferred from preset or custom entry)
+    var miscCost: Double?  // NEW: Costs incurred without fuel (fees, parking, etc.)
     
-    init(id: UUID = UUID(), timestamp: Date = Date(), fuelAdded: [String: Double], pricePerGallon: Double? = nil, totalCost: Double? = nil, location: String? = nil, notes: String? = nil) {
+    init(id: UUID = UUID(), timestamp: Date = Date(), fuelAdded: [String: Double], pricePerGallon: Double? = nil, totalCost: Double? = nil, location: String? = nil, notes: String? = nil, postFuelLevels: [String: Double]? = nil, miscCost: Double? = nil) {
         self.id = id
         self.timestamp = timestamp
         self.fuelAdded = fuelAdded
@@ -21,10 +23,66 @@ struct FuelStop: Codable, Identifiable {
         self.totalCost = totalCost
         self.location = location
         self.notes = notes
+        self.postFuelLevels = postFuelLevels
+        self.miscCost = miscCost
     }
     
     var totalAdded: Double {
         fuelAdded.values.reduce(0, +)
+    }
+    
+    /// Returns true if no fuel was added (rest stop / cost-only stop)
+    var isRestStop: Bool {
+        totalAdded == 0
+    }
+    
+    /// Display name for the stop type
+    var stopType: String {
+        isRestStop ? "REST STOP - NO FUEL ADDED" : "FUEL STOP"
+    }
+    
+    /// Total costs for this stop (fuel + miscellaneous)
+    var totalStopCost: Double {
+        let fuelCost = totalCost ?? 0
+        let misc = miscCost ?? 0
+        return fuelCost + misc
+    }
+    
+    // NEW: Infer pre-fuel levels from post-fuel levels
+    // Example: If topped off to 84 gal and added 45.2 gal, you had 38.8 gal
+    var inferredPreFuelLevels: [String: Double]? {
+        guard let postLevels = postFuelLevels else { return nil }
+        
+        var preLevels: [String: Double] = [:]
+        for (tank, postLevel) in postLevels {
+            let added = fuelAdded[tank] ?? 0
+            preLevels[tank] = max(0, postLevel - added)
+        }
+        
+        return preLevels
+    }
+    
+    // NEW: Total fuel before this stop (inferred)
+    var inferredPreFuelTotal: Double? {
+        inferredPreFuelLevels?.values.reduce(0, +)
+    }
+    
+    // NEW: Calculate variance between tracked and actual fuel
+    func calculateVariance(trackedPreFuel: [String: Double]) -> [String: Double]? {
+        guard let actualPreFuel = inferredPreFuelLevels else { return nil }
+        
+        var variance: [String: Double] = [:]
+        for (tank, trackedLevel) in trackedPreFuel {
+            let actualLevel = actualPreFuel[tank] ?? 0
+            variance[tank] = trackedLevel - actualLevel  // Positive = tracking optimistic
+        }
+        
+        return variance
+    }
+    
+    // NEW: Total variance across all tanks
+    func totalVariance(trackedPreFuel: [String: Double]) -> Double? {
+        calculateVariance(trackedPreFuel: trackedPreFuel)?.values.reduce(0, +)
     }
 }
 
@@ -43,8 +101,11 @@ struct FlightLeg: Codable, Identifiable {
     var preset: Preset
     var fuelExhausted: Bool
     var swap2Targets: (balanced: Double, endurance: Double)?
+    var engineStartTime: Date?  // NEW: When engine was started for this leg
+    var engineStopTime: Date?   // NEW: When engine was stopped for this leg
+    var totalEngineTime: TimeInterval?  // NEW: Total engine run time for this leg
     
-    init(id: UUID = UUID(), legNumber: Int, startTime: Date = Date(), endTime: Date? = nil, startingFuel: [String: Double], swapLog: [SwapEntry] = [], currentTank: String = "lMain", phase: Phase = .mains, flightMode: FlightMode? = nil, preset: Preset, fuelExhausted: Bool = false, swap2Targets: (balanced: Double, endurance: Double)? = nil) {
+    init(id: UUID = UUID(), legNumber: Int, startTime: Date = Date(), endTime: Date? = nil, startingFuel: [String: Double], swapLog: [SwapEntry] = [], currentTank: String = "lMain", phase: Phase = .mains, flightMode: FlightMode? = nil, preset: Preset, fuelExhausted: Bool = false, swap2Targets: (balanced: Double, endurance: Double)? = nil, engineStartTime: Date? = nil, engineStopTime: Date? = nil, totalEngineTime: TimeInterval? = nil) {
         self.id = id
         self.legNumber = legNumber
         self.startTime = startTime
@@ -57,6 +118,9 @@ struct FlightLeg: Codable, Identifiable {
         self.preset = preset
         self.fuelExhausted = fuelExhausted
         self.swap2Targets = swap2Targets
+        self.engineStartTime = engineStartTime
+        self.engineStopTime = engineStopTime
+        self.totalEngineTime = totalEngineTime
     }
     
     var totalBurned: Double {
@@ -68,10 +132,20 @@ struct FlightLeg: Codable, Identifiable {
         return end.timeIntervalSince(startTime)
     }
     
+    // Format engine time as HH:MM:SS
+    var formattedEngineTime: String {
+        guard let time = totalEngineTime else { return "--:--:--" }
+        let hours = Int(time) / 3600
+        let minutes = (Int(time) % 3600) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+    
     // Codable conformance for tuple
     enum CodingKeys: String, CodingKey {
         case id, legNumber, startTime, endTime, startingFuel, swapLog, currentTank, phase, flightMode, preset, fuelExhausted
         case swap2TargetsBalanced, swap2TargetsEndurance
+        case engineStartTime, engineStopTime, totalEngineTime  // NEW
     }
     
     init(from decoder: Decoder) throws {
@@ -94,6 +168,11 @@ struct FlightLeg: Codable, Identifiable {
         } else {
             swap2Targets = nil
         }
+        
+        // NEW: Decode timer properties
+        engineStartTime = try container.decodeIfPresent(Date.self, forKey: .engineStartTime)
+        engineStopTime = try container.decodeIfPresent(Date.self, forKey: .engineStopTime)
+        totalEngineTime = try container.decodeIfPresent(TimeInterval.self, forKey: .totalEngineTime)
     }
     
     func encode(to encoder: Encoder) throws {
@@ -114,6 +193,11 @@ struct FlightLeg: Codable, Identifiable {
             try container.encode(targets.balanced, forKey: .swap2TargetsBalanced)
             try container.encode(targets.endurance, forKey: .swap2TargetsEndurance)
         }
+        
+        // NEW: Encode timer properties
+        try container.encodeIfPresent(engineStartTime, forKey: .engineStartTime)
+        try container.encodeIfPresent(engineStopTime, forKey: .engineStopTime)
+        try container.encodeIfPresent(totalEngineTime, forKey: .totalEngineTime)
     }
 }
 
@@ -140,6 +224,36 @@ struct Trip: Codable, Identifiable {
         legs.reduce(0) { $0 + $1.totalBurned }
     }
     
+    var totalFuelAdded: Double {
+        fuelStops.reduce(0) { $0 + $1.totalAdded }
+    }
+    
+    // Average fuel price across all fuel stops (weighted by quantity)
+    var averageFuelPrice: Double? {
+        let stopsWithPrices = fuelStops.compactMap { stop -> (price: Double, qty: Double)? in
+            guard let price = stop.pricePerGallon else { return nil }
+            return (price, stop.totalAdded)
+        }
+        
+        guard !stopsWithPrices.isEmpty else { return nil }
+        
+        let totalCost = stopsWithPrices.reduce(0) { $0 + ($1.price * $1.qty) }
+        let totalQty = stopsWithPrices.reduce(0) { $0 + $1.qty }
+        
+        return totalQty > 0 ? totalCost / totalQty : nil
+    }
+    
+    // Total money spent on fuel purchases (includes unburned fuel)
+    var totalMoneySpent: Double {
+        fuelStops.compactMap { $0.totalCost }.reduce(0, +)
+    }
+    
+    // Estimated cost of fuel burned (using average price)
+    var estimatedFuelBurnedCost: Double? {
+        guard let avgPrice = averageFuelPrice else { return nil }
+        return totalFuelConsumed * avgPrice
+    }
+    
     var totalFuelCost: Double {
         fuelStops.compactMap { $0.totalCost }.reduce(0, +)
     }
@@ -147,11 +261,91 @@ struct Trip: Codable, Identifiable {
     var totalDuration: TimeInterval {
         legs.compactMap { $0.duration }.reduce(0, +)
     }
+    
+    // MARK: - Fuel Reconciliation
+    
+    /// Generates a reconciliation between tracked fuel and inferred actual fuel from receipts
+    /// This works when fuel stops include cost data, allowing us to reverse-engineer pre-fuel levels
+    func fuelReconciliation() -> [LegReconciliation] {
+        var reconciliations: [LegReconciliation] = []
+        
+        // Match legs with their corresponding fuel stops
+        for (index, leg) in legs.enumerated() {
+            // Find the fuel stop that occurred after this leg (if any)
+            let nextStopIndex = index  // Fuel stops align with leg endings
+            guard nextStopIndex < fuelStops.count else { continue }
+            
+            let fuelStop = fuelStops[nextStopIndex]
+            
+            // Calculate tracked ending fuel for this leg
+            var trackedEndingFuel: [String: Double] = [:]
+            for (tank, startingAmount) in leg.startingFuel {
+                let burned = leg.swapLog
+                    .filter { $0.tank.contains(tank.uppercased()) || $0.tank.hasPrefix(tank.prefix(1).uppercased()) }
+                    .reduce(0) { $0 + $1.burned }
+                trackedEndingFuel[tank] = max(0, startingAmount - burned)
+            }
+            
+            let trackedTotal = trackedEndingFuel.values.reduce(0, +)
+            let actualTotal = fuelStop.inferredPreFuelTotal
+            let variance = actualTotal.map { trackedTotal - $0 }
+            
+            reconciliations.append(LegReconciliation(
+                legNumber: leg.legNumber,
+                trackedEndingFuel: trackedEndingFuel,
+                inferredActualFuel: fuelStop.inferredPreFuelLevels,
+                variance: variance,
+                fuelStop: fuelStop
+            ))
+        }
+        
+        return reconciliations
+    }
+    
+    /// Check if trip has enough data for meaningful reconciliation
+    var canReconcile: Bool {
+        !fuelStops.isEmpty && fuelStops.contains { $0.postFuelLevels != nil }
+    }
+}
+
+// MARK: - Leg Reconciliation
+
+struct LegReconciliation {
+    let legNumber: Int
+    let trackedEndingFuel: [String: Double]
+    let inferredActualFuel: [String: Double]?
+    let variance: Double?  // Positive = tracking was optimistic (thought we had more than we did)
+    let fuelStop: FuelStop
+    
+    var trackedTotal: Double {
+        trackedEndingFuel.values.reduce(0, +)
+    }
+    
+    var actualTotal: Double? {
+        inferredActualFuel?.values.reduce(0, +)
+    }
+    
+    var hasVariance: Bool {
+        guard let variance = variance else { return false }
+        return abs(variance) > 0.5  // More than 0.5 gallon difference
+    }
+    
+    var varianceDescription: String {
+        guard let variance = variance else { return "Unknown" }
+        
+        if abs(variance) < 0.5 {
+            return "Within tolerance (±0.5 gal)"
+        } else if variance > 0 {
+            return String(format: "Tracking optimistic by %.1f gal", variance)
+        } else {
+            return String(format: "Tracking conservative by %.1f gal", abs(variance))
+        }
+    }
 }
 
 enum Preset: String, Codable {
     case topoff = "TOP OFF"
-    case tabs = "TABS"
+    case tabs = "TAB FILL"
     case custom = "CUSTOM"
     
     var tanks: [String: Double] {
@@ -183,13 +377,24 @@ struct SwapEntry: Codable, Identifiable {
     let tank: String
     let totalizer: Double
     let burned: Double
+    let legTime: TimeInterval?  // NEW: Time elapsed since engine start (in seconds)
     
-    init(swapNumber: Int, tank: String, totalizer: Double, burned: Double) {
+    init(swapNumber: Int, tank: String, totalizer: Double, burned: Double, legTime: TimeInterval? = nil) {
         self.id = UUID()
         self.swapNumber = swapNumber
         self.tank = tank
         self.totalizer = totalizer
         self.burned = burned
+        self.legTime = legTime
+    }
+    
+    // Format leg time as HH:MM:SS
+    var formattedLegTime: String {
+        guard let time = legTime else { return "--:--:--" }
+        let hours = Int(time) / 3600
+        let minutes = (Int(time) % 3600) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 }
 
@@ -205,6 +410,7 @@ class FuelState: ObservableObject {
     // Published state - Trip/Leg tracking
     @Published var currentTrip: Trip?
     @Published var currentLeg: FlightLeg?
+    @Published var currentAircraft: Aircraft?  // NEW: Track which aircraft we're flying
     
     // Published state - Legacy (for backwards compatibility)
     @Published var isFlying = false
@@ -219,8 +425,13 @@ class FuelState: ObservableObject {
     @Published var flightMode: FlightMode? = nil
     @Published var swap2Targets: (balanced: Double, endurance: Double)? = nil
     
+    // NEW: Leg timer tracking
+    @Published var legTimerStart: Date?  // When engine was started for current leg
+    @Published var currentLegTime: TimeInterval = 0  // Current elapsed time in seconds
+    
     private let storageKey = "n215c_fuel_state"
     private let tripStorageKey = "n215c_current_trip"
+    private let aircraftStorageKey = "n215c_current_aircraft"  // NEW
     
     init() {
         load()
@@ -228,13 +439,27 @@ class FuelState: ObservableObject {
     
     // MARK: - Computed Properties
     
-    var tankOrder: [String] { ["lTip", "lMain", "rMain", "rTip"] }
+    var tankOrder: [String] {
+        // Use current aircraft's tanks if available, otherwise default to N215C
+        if let aircraft = currentAircraft {
+            return aircraft.tanks.map { $0.position.key }
+        }
+        return ["lTip", "lMain", "rMain", "rTip"]
+    }
     
     var legNumber: Int {
         if let trip = currentTrip {
             return trip.legs.count + (currentLeg != nil ? 1 : 0)
         }
         return 1
+    }
+    
+    // NEW: Format current leg time as HH:MM:SS
+    var formattedLegTime: String {
+        let hours = Int(currentLegTime) / 3600
+        let minutes = (Int(currentLegTime) % 3600) / 60
+        let seconds = Int(currentLegTime) % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
     
     func startFuel(_ tank: String) -> Double {
@@ -383,12 +608,51 @@ class FuelState: ObservableObject {
     
     // MARK: - Actions
     
-    func startFlight(_ selectedPreset: Preset, customTanks: [String: Double]? = nil) {
+    // Determine proper starting tank based on aircraft configuration
+    private func determineStartingTank(aircraft: Aircraft) -> String {
+        // Priority order for starting tank:
+        // 1. Left main (most common)
+        // 2. Right main
+        // 3. Center
+        // 4. First available tank (fallback)
+        
+        let tankKeys = aircraft.tanks.map { $0.position.key }
+        
+        // Check for mains first (never start on tips)
+        if tankKeys.contains("lMain") {
+            return "lMain"
+        }
+        if tankKeys.contains("rMain") {
+            return "rMain"
+        }
+        if tankKeys.contains("center") {
+            return "center"
+        }
+        
+        // Fallback to first tank (shouldn't happen with normal aircraft)
+        return tankKeys.first ?? "lMain"
+    }
+    
+    func startFlight(_ selectedPreset: Preset, aircraft: Aircraft, customTanks: [String: Double]? = nil, tabFillLevels: [TankPosition: Double]? = nil) {
+        startFlightWithInitialFuel(selectedPreset, aircraft: aircraft, customTanks: customTanks, tabFillLevels: tabFillLevels, pricePerGallon: nil, totalCost: nil, location: nil)
+    }
+    
+    func startFlightWithInitialFuel(_ selectedPreset: Preset, aircraft: Aircraft, customTanks: [String: Double]? = nil, tabFillLevels: [TankPosition: Double]? = nil, pricePerGallon: Double?, totalCost: Double?, location: String?) {
         preset = selectedPreset
         customFuel = customTanks ?? [:]
-        currentTank = "lMain"
+        currentAircraft = aircraft  // NEW: Store the aircraft
+        
+        // Initialize tankBurned dynamically based on aircraft tanks
+        tankBurned = Dictionary(uniqueKeysWithValues: aircraft.tanks.map { ($0.position.key, 0.0) })
+        
+        // If tabs preset and tabFillLevels provided, override customFuel
+        if selectedPreset == .tabs, let tabLevels = tabFillLevels {
+            customFuel = Dictionary(uniqueKeysWithValues: tabLevels.map { ($0.key, $1) })
+        }
+        
+        // Set starting tank - prefer mains over tips
+        currentTank = determineStartingTank(aircraft: aircraft)
         swapLog = []
-        tankBurned = ["lTip": 0, "lMain": 0, "rMain": 0, "rTip": 0]
         phase = .mains
         fuelExhausted = false
         flightMode = selectedPreset == .tabs ? .balanced : nil
@@ -396,16 +660,14 @@ class FuelState: ObservableObject {
         isFlying = true
         engineRunning = false  // Start suspended
         
-        // Create new trip and leg
+        // Create new leg (NO automatic trip creation)
         let startingFuel = selectedPreset == .custom ? (customTanks ?? [:]) : selectedPreset.tanks
         
-        if currentTrip == nil {
-            // Start new trip
-            currentTrip = Trip(startDate: Date())
-        }
+        // Determine leg number based on total open legs + current trip legs
+        let openLegsCount = getOpenLegsCount()
+        let tripLegsCount = currentTrip?.legs.count ?? 0
+        let legNum = openLegsCount + tripLegsCount + 1
         
-        // Create new leg
-        let legNum = (currentTrip?.legs.count ?? 0) + 1
         currentLeg = FlightLeg(
             legNumber: legNum,
             startTime: Date(),
@@ -413,7 +675,27 @@ class FuelState: ObservableObject {
             preset: selectedPreset
         )
         
+        // If cost data provided, create initial FuelStop and save to open fuel stops
+        if pricePerGallon != nil || totalCost != nil {
+            let fuelStop = FuelStop(
+                fuelAdded: startingFuel,
+                pricePerGallon: pricePerGallon,
+                totalCost: totalCost,
+                location: location,
+                postFuelLevels: startingFuel  // NEW: Starting fuel IS the post-fuel level
+            )
+            saveToOpenFuelStops(fuelStop)
+        }
+        
         save()
+    }
+    
+    func getOpenLegsCount() -> Int {
+        guard let data = UserDefaults.standard.data(forKey: "openLegs"),
+              let legs = try? JSONDecoder().decode([FlightLeg].self, from: data) else {
+            return 0
+        }
+        return legs.count
     }
     
     func addFuel(newTanks: [String: Double], pricePerGallon: Double? = nil, totalCost: Double? = nil, location: String? = nil) {
@@ -428,21 +710,19 @@ class FuelState: ObservableObject {
             fuelAdded[tank] = max(0, newAmount - current)
         }
         
-        // Create fuel stop record
+        // Create fuel stop record with post-fuel levels (enables inference)
         let fuelStop = FuelStop(
             fuelAdded: fuelAdded,
             pricePerGallon: pricePerGallon,
             totalCost: totalCost,
-            location: location
+            location: location,
+            postFuelLevels: newTanks  // NEW: Store actual post-fuel state
         )
         
-        // Add to current trip
-        if currentTrip == nil {
-            currentTrip = Trip(startDate: Date())
-        }
-        currentTrip?.fuelStops.append(fuelStop)
+        // Save fuel stop to open fuel stops (will be associated with trip when legs are packaged)
+        saveToOpenFuelStops(fuelStop)
         
-        // Start new leg with updated fuel
+        // Start new leg with updated fuel (NO automatic trip creation)
         preset = .custom
         customFuel = newTanks
         currentTank = "lMain"
@@ -455,14 +735,90 @@ class FuelState: ObservableObject {
         isFlying = true  // KEEP FLYING
         engineRunning = false  // Start suspended (ready to start engine)
         
-        // Create new leg
-        let legNum = (currentTrip?.legs.count ?? 0) + 1
+        // Determine leg number
+        let openLegsCount = getOpenLegsCount()
+        let tripLegsCount = currentTrip?.legs.count ?? 0
+        let legNum = openLegsCount + tripLegsCount + 1
+        
         currentLeg = FlightLeg(
             legNumber: legNum,
             startTime: Date(),
             startingFuel: newTanks,
             preset: .custom
         )
+        
+        save()
+    }
+    
+    func saveToOpenFuelStops(_ fuelStop: FuelStop) {
+        // Load existing open fuel stops
+        var openFuelStops: [FuelStop] = []
+        if let data = UserDefaults.standard.data(forKey: "openFuelStops"),
+           let stops = try? JSONDecoder().decode([FuelStop].self, from: data) {
+            openFuelStops = stops
+        }
+        
+        // Add new fuel stop
+        openFuelStops.append(fuelStop)
+        
+        // Keep only last 50 stops
+        if openFuelStops.count > 50 {
+            openFuelStops = Array(openFuelStops.suffix(50))
+        }
+        
+        // Save back
+        if let encoded = try? JSONEncoder().encode(openFuelStops) {
+            UserDefaults.standard.set(encoded, forKey: "openFuelStops")
+        }
+    }
+    
+    func resumeWithoutFuel(miscCost: Double? = nil, notes: String? = nil) {
+        // IMPORTANT: When continuing without adding fuel, we ONLY increment leg number
+        // All fuel state (burn progress, totalizer, swaps, current tank) is preserved
+        
+        // If cost data provided, create a rest stop record
+        if miscCost != nil || notes != nil {
+            let restStop = FuelStop(
+                fuelAdded: Dictionary(uniqueKeysWithValues: tankOrder.map { ($0, 0.0) }),
+                notes: notes,
+                miscCost: miscCost
+            )
+            saveToOpenFuelStops(restStop)
+        }
+        
+        // Simply increment leg number while preserving all flight state
+        let openLegsCount = getOpenLegsCount()
+        let tripLegsCount = currentTrip?.legs.count ?? 0
+        let newLegNum = openLegsCount + tripLegsCount + 1
+        
+        // Update or create leg with new number but preserve all existing state
+        if var leg = currentLeg {
+            leg.legNumber = newLegNum
+            leg.startTime = Date()  // New leg start time
+            currentLeg = leg
+        } else {
+            // Shouldn't happen, but create leg with current state if needed
+            var startingFuel: [String: Double] = [:]
+            for tank in tankOrder {
+                startingFuel[tank] = startFuel(tank)
+            }
+            
+            currentLeg = FlightLeg(
+                legNumber: newLegNum,
+                startTime: Date(),
+                startingFuel: startingFuel,
+                swapLog: swapLog,
+                currentTank: currentTank,
+                phase: phase,
+                flightMode: flightMode,
+                preset: preset,
+                fuelExhausted: fuelExhausted,
+                swap2Targets: swap2Targets
+            )
+        }
+        
+        // Keep engine state and flying state as-is
+        // swapLog, tankBurned, currentTank, phase, totalizer - ALL PRESERVED
         
         save()
     }
@@ -479,16 +835,41 @@ class FuelState: ObservableObject {
         leg.fuelExhausted = fuelExhausted
         leg.swap2Targets = swap2Targets
         
-        // Add to trip
-        if currentTrip == nil {
-            currentTrip = Trip(startDate: leg.startTime)
+        // Add to trip or save as open leg
+        if currentTrip != nil {
+            // Part of ongoing trip - add to trip
+            currentTrip?.legs.append(leg)
+        } else {
+            // Standalone leg - save to open legs
+            saveToOpenLegs(leg)
         }
-        currentTrip?.legs.append(leg)
         
         // Clear current leg
         currentLeg = nil
         
         save()
+    }
+    
+    func saveToOpenLegs(_ leg: FlightLeg) {
+        // Load existing open legs
+        var openLegs: [FlightLeg] = []
+        if let data = UserDefaults.standard.data(forKey: "openLegs"),
+           let legs = try? JSONDecoder().decode([FlightLeg].self, from: data) {
+            openLegs = legs
+        }
+        
+        // Add new leg
+        openLegs.append(leg)
+        
+        // Keep only last 50 legs
+        if openLegs.count > 50 {
+            openLegs = Array(openLegs.suffix(50))
+        }
+        
+        // Save back
+        if let encoded = try? JSONEncoder().encode(openLegs) {
+            UserDefaults.standard.set(encoded, forKey: "openLegs")
+        }
     }
     
     func logSwap(reading: Double) {
@@ -504,11 +885,18 @@ class FuelState: ObservableObject {
         
         tankBurned[currentTank, default: 0] += burned
         
+        // NEW: Calculate leg time for this swap
+        let legTime: TimeInterval? = {
+            guard let startTime = legTimerStart else { return nil }
+            return Date().timeIntervalSince(startTime)
+        }()
+        
         let entry = SwapEntry(
             swapNumber: swapLog.count + 1,
             tank: tankLabel(currentTank),
             totalizer: reading,
-            burned: burned
+            burned: burned,
+            legTime: legTime  // NEW: Include leg time
         )
         swapLog.append(entry)
         
@@ -549,6 +937,21 @@ class FuelState: ObservableObject {
     func shutdown(reading: Double) {
         guard !fuelExhausted else {
             engineRunning = false
+            
+            // NEW: Stop timer on shutdown
+            if let startTime = legTimerStart {
+                let totalTime = Date().timeIntervalSince(startTime)
+                currentLegTime = totalTime
+                
+                if var leg = currentLeg {
+                    leg.engineStopTime = Date()
+                    leg.totalEngineTime = totalTime
+                    currentLeg = leg
+                }
+                
+                legTimerStart = nil
+            }
+            
             endCurrentLeg()
             save()
             return
@@ -560,27 +963,79 @@ class FuelState: ObservableObject {
         // Update current tank
         tankBurned[currentTank, default: 0] += burned
         
+        // NEW: Calculate final leg time
+        let finalLegTime: TimeInterval? = {
+            guard let startTime = legTimerStart else { return nil }
+            return Date().timeIntervalSince(startTime)
+        }()
+        
         // Log shutdown as special entry (for reference)
         let shutdownEntry = SwapEntry(
             swapNumber: swapLog.count + 1,
             tank: tankLabel(currentTank) + " (SHUTDOWN)",
             totalizer: reading,
-            burned: burned
+            burned: burned,
+            legTime: finalLegTime  // NEW: Include final leg time
         )
         swapLog.append(shutdownEntry)
         
         engineRunning = false
+        
+        // NEW: Stop timer and save total engine time
+        if let startTime = legTimerStart {
+            let totalTime = Date().timeIntervalSince(startTime)
+            currentLegTime = totalTime
+            
+            if var leg = currentLeg {
+                leg.engineStopTime = Date()
+                leg.totalEngineTime = totalTime
+                currentLeg = leg
+            }
+            
+            legTimerStart = nil
+        }
+        
         endCurrentLeg()  // End leg when engine shuts down
         save()
     }
     
     func startEngine() {
         engineRunning = true
+        
+        // NEW: Start leg timer
+        if legTimerStart == nil {
+            legTimerStart = Date()
+            currentLegTime = 0
+            
+            // Update current leg with engine start time
+            if var leg = currentLeg {
+                leg.engineStartTime = legTimerStart
+                currentLeg = leg
+            }
+        }
+        
         save()
     }
     
     func stopEngine() {
         engineRunning = false
+        
+        // NEW: Stop leg timer and calculate total engine time
+        if let startTime = legTimerStart {
+            let totalTime = Date().timeIntervalSince(startTime)
+            currentLegTime = totalTime
+            
+            // Update current leg with engine stop time and total time
+            if var leg = currentLeg {
+                leg.engineStopTime = Date()
+                leg.totalEngineTime = totalTime
+                currentLeg = leg
+            }
+            
+            // Clear timer start (will be reset on next engine start)
+            legTimerStart = nil
+        }
+        
         save()
     }
 
@@ -658,6 +1113,9 @@ class FuelState: ObservableObject {
         swap2Targets = nil
         currentTrip = nil
         currentLeg = nil
+        currentAircraft = nil  // NEW: Clear aircraft
+        legTimerStart = nil  // NEW: Clear timer
+        currentLegTime = 0  // NEW: Reset timer
         clearStorage()
     }
     
@@ -698,6 +1156,13 @@ class FuelState: ObservableObject {
         } else {
             UserDefaults.standard.removeObject(forKey: tripStorageKey)
         }
+        
+        // Save current aircraft
+        if let aircraft = currentAircraft, let encoded = try? JSONEncoder().encode(aircraft) {
+            UserDefaults.standard.set(encoded, forKey: aircraftStorageKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: aircraftStorageKey)
+        }
     }
     
     private func load() {
@@ -718,6 +1183,12 @@ class FuelState: ObservableObject {
         if let tripData = UserDefaults.standard.data(forKey: tripStorageKey),
            let trip = try? JSONDecoder().decode(Trip.self, from: tripData) {
             currentTrip = trip
+        }
+        
+        // Load current aircraft
+        if let aircraftData = UserDefaults.standard.data(forKey: aircraftStorageKey),
+           let aircraft = try? JSONDecoder().decode(Aircraft.self, from: aircraftData) {
+            currentAircraft = aircraft
         }
     }
     

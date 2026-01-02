@@ -1,11 +1,13 @@
 import SwiftUI
+import SwiftUI
 import Combine
 
 struct AircraftSelectionView: View {
     @ObservedObject var fuel: FuelState
+    @ObservedObject var aircraftManager = AircraftManager.shared
     @State private var selectedAircraft: Aircraft? = nil
-    @State private var showOptions = false
     @State private var showTrips = false
+    @State private var showAddAircraft = false
     
     var hasSavedState: Bool {
         return !fuel.swapLog.isEmpty || fuel.tankBurned.values.contains(where: { $0 > 0 })
@@ -49,62 +51,63 @@ struct AircraftSelectionView: View {
                     .padding(.trailing, 20)
                 }
                 
-                // N215C Card
+                // N215C Preset
                 Button(action: {
                     selectedAircraft = Aircraft.n215c
-                    showOptions = true
                 }) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("N215C")
-                                .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                .foregroundColor(.primaryText)
-                            
-                            Spacer()
-                            
-                            if hasSavedState {
-                                Text("LEG #\(fuel.legNumber)")
-                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.fuelActive)
-                                    .tracking(1)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.fuelActive.opacity(0.2))
-                                    .cornerRadius(4)
-                            } else {
-                                Text("PRESET")
-                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.accentText)
-                                    .tracking(1)
+                    AircraftCard(
+                        aircraft: Aircraft.n215c,
+                        hasSavedState: hasSavedState,
+                        legNumber: fuel.legNumber,
+                        fuel: fuel
+                    )
+                }
+                .padding(.horizontal, 20)
+                
+                // Custom Aircraft Cards
+                ForEach(aircraftManager.customAircraft) { aircraft in
+                    CustomAircraftCardWithSwipe(
+                        aircraft: aircraft,
+                        onSelect: {
+                            selectedAircraft = aircraft
+                        },
+                        onDelete: {
+                            withAnimation {
+                                aircraftManager.deleteAircraft(aircraft)
                             }
                         }
+                    )
+                    .padding(.horizontal, 20)
+                }
+                
+                // Add New Aircraft Card
+                Button(action: {
+                    showAddAircraft = true
+                }) {
+                    VStack(spacing: 12) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(.accentText)
                         
-                        Text("Piper Cherokee 6")
-                            .font(.system(size: 14, design: .monospaced))
+                        Text("ADD NEW AIRCRAFT")
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .foregroundColor(.primaryText)
+                            .tracking(2)
+                        
+                        Text("Create a custom aircraft profile")
+                            .font(.system(size: 12, design: .monospaced))
                             .foregroundColor(.secondaryText)
-                        
-                        HStack(spacing: 16) {
-                            Label("PA32", systemImage: "airplane")
-                                .font(.system(size: 12, design: .monospaced))
-                                .foregroundColor(.secondaryText)
-                            
-                            Label("84 GAL", systemImage: "drop.fill")
-                                .font(.system(size: 12, design: .monospaced))
-                                .foregroundColor(.accentText)
-                        }
-                        
-                        // Fuel gauges (only when saved state exists)
-                        if hasSavedState {
-                            Divider()
-                                .background(Color.white.opacity(0.1))
-                                .padding(.vertical, 4)
-                            
-                            AircraftCardFuelDisplay(fuel: fuel)
-                        }
+                            .multilineTextAlignment(.center)
                     }
-                    .padding(16)
-                    .background(Color.cardBackground)
-                    .cornerRadius(12)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 30)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(
+                                Color.accentText.opacity(0.5),
+                                style: StrokeStyle(lineWidth: 2, dash: [8, 4])
+                            )
+                    )
                 }
                 .padding(.horizontal, 20)
                 
@@ -112,12 +115,83 @@ struct AircraftSelectionView: View {
             }
             .padding(.top, 40)
         }
-        .fullScreenCover(isPresented: $showOptions) {
-            FuelOptionsView(aircraft: Aircraft.n215c, fuel: fuel)
+        .fullScreenCover(item: $selectedAircraft) { aircraft in
+            FuelOptionsView(aircraft: aircraft, fuel: fuel)
         }
         .sheet(isPresented: $showTrips) {
             TripsListView()
         }
+        .sheet(isPresented: $showAddAircraft) {
+            AddAircraftView()
+        }
+    }
+}
+
+// MARK: - Aircraft Card
+
+struct AircraftCard: View {
+    let aircraft: Aircraft
+    let hasSavedState: Bool
+    let legNumber: Int?
+    let fuel: FuelState?
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(aircraft.tailNumber)
+                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                
+                Spacer()
+                
+                if hasSavedState, let legNum = legNumber {
+                    Text("LEG #\(legNum)")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundColor(.fuelActive)
+                        .tracking(1)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.fuelActive.opacity(0.2))
+                        .cornerRadius(4)
+                } else if aircraft.isPreset {
+                    Text("PRESET")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundColor(.accentText)
+                        .tracking(1)
+                } else {
+                    Text("CUSTOM")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                        .tracking(1)
+                }
+            }
+            
+            Text("\(aircraft.manufacturer) \(aircraft.model)")
+                .font(.system(size: 14, design: .monospaced))
+                .foregroundColor(.secondaryText)
+            
+            HStack(spacing: 16) {
+                Label(aircraft.icao, systemImage: "airplane")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+                
+                Label(String(format: "%.0f GAL", aircraft.totalCapacity), systemImage: "drop.fill")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundColor(.accentText)
+            }
+            
+            // Fuel gauges (only when saved state exists)
+            if hasSavedState, let fuelState = fuel {
+                Divider()
+                    .background(Color.white.opacity(0.1))
+                    .padding(.vertical, 4)
+                
+                AircraftCardFuelDisplay(fuel: fuelState)
+            }
+        }
+        .padding(16)
+        .background(Color.cardBackground)
+        .cornerRadius(12)
     }
 }
 
@@ -129,10 +203,22 @@ struct AircraftCardFuelDisplay: View {
     var body: some View {
         VStack(spacing: 8) {
             HStack(alignment: .bottom, spacing: 10) {
-                MiniGauge(label: "L TIP", remaining: fuel.remaining("lTip"), maxFuel: 17)
-                MiniGauge(label: "L MAIN", remaining: fuel.remaining("lMain"), maxFuel: 25)
-                MiniGauge(label: "R MAIN", remaining: fuel.remaining("rMain"), maxFuel: 25)
-                MiniGauge(label: "R TIP", remaining: fuel.remaining("rTip"), maxFuel: 17)
+                // Display tanks dynamically based on current aircraft
+                if let aircraft = fuel.currentAircraft {
+                    ForEach(aircraft.tanks) { tank in
+                        MiniGauge(
+                            label: tank.position.rawValue,
+                            remaining: fuel.remaining(tank.position.key),
+                            maxFuel: tank.capacity
+                        )
+                    }
+                } else {
+                    // Fallback to N215C
+                    MiniGauge(label: "L TIP", remaining: fuel.remaining("lTip"), maxFuel: 17)
+                    MiniGauge(label: "L MAIN", remaining: fuel.remaining("lMain"), maxFuel: 25)
+                    MiniGauge(label: "R MAIN", remaining: fuel.remaining("rMain"), maxFuel: 25)
+                    MiniGauge(label: "R TIP", remaining: fuel.remaining("rTip"), maxFuel: 17)
+                }
             }
             
             HStack {
@@ -194,6 +280,89 @@ struct MiniGauge: View {
                 .font(.system(size: 8, weight: .bold, design: .monospaced))
                 .foregroundColor(isLow ? .fuelLow : .primaryText)
         }
+    }
+}
+
+// MARK: - Custom Aircraft Card With Swipe
+
+struct CustomAircraftCardWithSwipe: View {
+    let aircraft: Aircraft
+    let onSelect: () -> Void
+    let onDelete: () -> Void
+    
+    @State private var offset: CGFloat = 0
+    @State private var isSwiping = false
+    
+    private let deleteButtonWidth: CGFloat = 80
+    
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            // Red delete background
+            HStack {
+                Spacer()
+                Button(action: {
+                    onDelete()
+                }) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 24))
+                        Text("Delete")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    }
+                    .foregroundColor(.white)
+                    .frame(width: deleteButtonWidth)
+                    .frame(maxHeight: .infinity)
+                }
+            }
+            .background(Color.red)
+            .cornerRadius(12)
+            
+            // Aircraft card
+            Button(action: {
+                if offset == 0 {
+                    onSelect()
+                } else {
+                    // Close the swipe if it's open
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        offset = 0
+                    }
+                }
+            }) {
+                AircraftCard(
+                    aircraft: aircraft,
+                    hasSavedState: false,
+                    legNumber: nil,
+                    fuel: nil
+                )
+            }
+            .offset(x: offset)
+            .gesture(
+                DragGesture()
+                    .onChanged { gesture in
+                        isSwiping = true
+                        // Only allow left swipe (negative values)
+                        let newOffset = gesture.translation.width
+                        if newOffset < 0 {
+                            offset = max(newOffset, -deleteButtonWidth)
+                        } else if offset < 0 {
+                            // Allow swiping back to close
+                            offset = min(0, offset + newOffset)
+                        }
+                    }
+                    .onEnded { gesture in
+                        isSwiping = false
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            // If swiped more than halfway, snap to open
+                            if offset < -deleteButtonWidth / 2 {
+                                offset = -deleteButtonWidth
+                            } else {
+                                offset = 0
+                            }
+                        }
+                    }
+            )
+        }
+        .frame(height: 120)
     }
 }
 

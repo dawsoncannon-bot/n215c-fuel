@@ -1,0 +1,25 @@
+Manufacturer,Model,Variant,ICAO,Fuel Type,L Tip,L Main,Center,R Main,R Tip,Aft,Total Usable,Fuel Selector,Aux/Tip/Transfer Behavior,Critical Gotchas
+Cessna,172 Skyhawk,Late Models (S),C172,AVGAS 100LL,,26.5,,26.5,,,53,BOTH,Standard main tanks only,BOTH is not true crossfeed
+Cessna,182 Skylane,Later Models,C182,AVGAS 100LL,,44,,44,,,88,BOTH,Standard main tanks only,Some POHs specify BOTH for normal ops
+Cessna,210 Centurion,,C210,AVGAS 100LL,,45,,44,,,89,L/R/OFF,⚠️ AUX TANKS TRANSFER (often to right),Aux tanks complicate fuel management
+Piper,PA-28-140 Cherokee,,PA28,AVGAS 100LL,,18,,18,,,36,L/R/OFF,Standard main tanks only,Unusable varies by year
+Piper,PA-28-180 Cherokee,,PA28,AVGAS 100LL,,24,,24,,,48,L/R/OFF,Standard main tanks only,Verify early vs later POHs
+Piper,PA-28-181 Archer,,PA28,AVGAS 100LL,,24,,24,,,48,L/R/OFF,Standard main tanks only,Very consistent across fleet
+Piper,PA-28R-180 Arrow I,Hershey Bar Wing,PA28,AVGAS 100LL,,24,,24,,,48,L/R/OFF,Standard main tanks only,Same fuel logic as other PA-28s
+Piper,PA-28R-200 Arrow II,Hershey Bar Wing,PA28,AVGAS 100LL,,24,,24,,,48,L/R/OFF,Standard main tanks only,Wing planform unchanged
+Piper,PA-32-260 Cherokee Six,84 Gal (4 Tanks),PA32,AVGAS 100LL,17,25,,25,17,,84,Individual Tank,⚠️ INDIVIDUAL TANK SELECTION - 4 tanks,Must manage 4 tanks separately
+Piper,PA-32 Saratoga,Fixed Gear,PA32,AVGAS 100LL,,51,,51,,,102,L/R/OFF,Main + bladder per side (integrated),Some quote 107 total with ~5 unusable
+Piper,PA-32R-300 Lance,Retractable,PA32,AVGAS 100LL,,47,,47,,,94,L/R/OFF,Main + bladder per side (integrated),Retractable gear version
+Beechcraft,Bonanza 35 (V-Tail),Standard (No Tips),BE35,AVGAS 100LL,,20,,20,,,40,L/R/OFF,Wing root tanks only,NO BOTH position
+Beechcraft,Bonanza 35 (V-Tail),With 20 Gal Tips,BE35,AVGAS 100LL,10,20,,20,10,,60,L/R/OFF,⚠️ TIPS TRANSFER ONLY - never feed engine,Must have room in mains or overboard venting
+Beechcraft,Bonanza 35 (V-Tail),With 40 Gal Tips,BE35,AVGAS 100LL,20,20,,20,20,,80,L/R/OFF,⚠️ TIPS TRANSFER ONLY - slower than burn,Transfer rate planning critical
+Beechcraft,Bonanza 33 / F33,Standard (No Tips),BE33,AVGAS 100LL,,25,,25,,,50,L/R/OFF,Standard mains only,Straight-tail Debonair
+Beechcraft,Bonanza 33 / F33,With Tips (70-80 Gal),BE33,AVGAS 100LL,10,25,,25,10,,70,L/R/OFF,⚠️ TIPS TRANSFER via electrical pumps,Imbalance if transfer to one side repeatedly
+Beechcraft,A36 / G36 Bonanza,Standard (No Tips),BE36,AVGAS 100LL,,37,,37,,,74,L/R/OFF,Standard mains only,Long-body; large mains
+Beechcraft,A36 / G36 Bonanza,With 20 Gal Tips,BE36,AVGAS 100LL,10,37,,37,10,,94,L/R/OFF,⚠️ TIPS TRANSFER ONLY,Can out-range bladder; aft CG sensitivity
+Beechcraft,A36 / G36 Bonanza,With 40 Gal Tips,BE36,AVGAS 100LL,20,37,,37,20,,114,L/R/OFF,⚠️ TIPS TRANSFER ONLY - long transfers,Can dump overboard; electrical load concern
+Beechcraft,B36TC Bonanza (Turbo),Standard (No Tips),BE36,AVGAS 100LL,,37,,37,,,74,L/R/OFF,Standard mains only,Higher burn rate
+Beechcraft,B36TC Bonanza (Turbo),With Tips (110+ Gal),BE36,AVGAS 100LL,18,37,,37,18,,110,L/R/OFF,⚠️ TIPS TRANSFER - timing CRITICAL,Transfer timing critical in climb phase
+Mooney,M20C,,M20C,AVGAS 100LL,,24,,24,,,48,L/R/OFF,Standard main tanks only,Some docs list 52 total
+Mooney,M20J,,M20J,AVGAS 100LL,,32,,32,,,64,L/R/OFF,Standard main tanks only,Very consistent across J models
+Mooney,M20R Ovation,,M20R,AVGAS 100LL,,44.5,,44.5,,,89,L/R/OFF,Standard main tanks only,Confirm usable per POH and mods

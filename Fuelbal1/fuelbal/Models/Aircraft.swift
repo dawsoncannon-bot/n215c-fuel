@@ -10,8 +10,9 @@ struct Aircraft: Codable, Identifiable {
     var fuelType: FuelType
     var tanks: [FuelTank]
     var isPreset: Bool  // true for built-in presets like N215C
+    var tabFillLevels: [TankPosition: Double]?  // Optional: fuel to "tabs" per tank
     
-    init(id: UUID = UUID(), tailNumber: String, manufacturer: String, model: String, icao: String, fuelType: FuelType, tanks: [FuelTank], isPreset: Bool = false) {
+    init(id: UUID = UUID(), tailNumber: String, manufacturer: String, model: String, icao: String, fuelType: FuelType, tanks: [FuelTank], isPreset: Bool = false, tabFillLevels: [TankPosition: Double]? = nil) {
         self.id = id
         self.tailNumber = tailNumber
         self.manufacturer = manufacturer
@@ -20,10 +21,20 @@ struct Aircraft: Codable, Identifiable {
         self.fuelType = fuelType
         self.tanks = tanks
         self.isPreset = isPreset
+        self.tabFillLevels = tabFillLevels
     }
     
     var totalCapacity: Double {
         tanks.reduce(0) { $0 + $1.capacity }
+    }
+    
+    var totalTabFill: Double? {
+        guard let tabs = tabFillLevels else { return nil }
+        return tabs.values.reduce(0, +)
+    }
+    
+    var hasTabFill: Bool {
+        tabFillLevels != nil
     }
 }
 
@@ -44,15 +55,19 @@ struct FuelTank: Codable, Identifiable {
 enum TankPosition: String, Codable, CaseIterable {
     case lTip = "L TIP"
     case lMain = "L MAIN"
+    case center = "CENTER"
     case rMain = "R MAIN"
     case rTip = "R TIP"
+    case aft = "AFT"
     
     var key: String {
         switch self {
         case .lTip: return "lTip"
         case .lMain: return "lMain"
+        case .center: return "center"
         case .rMain: return "rMain"
         case .rTip: return "rTip"
+        case .aft: return "aft"
         }
     }
 }
@@ -70,7 +85,7 @@ enum FuelType: String, Codable, CaseIterable {
     }
 }
 
-// MARK: - Preset Aircraft
+// MARK: - Preset Aircraft (User's actual aircraft)
 extension Aircraft {
     static let n215c = Aircraft(
         tailNumber: "N215C",
@@ -84,6 +99,12 @@ extension Aircraft {
             FuelTank(position: .rMain, capacity: 25),
             FuelTank(position: .rTip, capacity: 17)
         ],
-        isPreset: true
+        isPreset: true,
+        tabFillLevels: [
+            .lTip: 17,   // Tips always full (no tabs)
+            .lMain: 18,  // Mains to tabs
+            .rMain: 18,  // Mains to tabs
+            .rTip: 17    // Tips always full (no tabs)
+        ]
     )
 }

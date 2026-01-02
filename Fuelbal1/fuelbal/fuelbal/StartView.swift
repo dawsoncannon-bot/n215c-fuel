@@ -43,11 +43,11 @@ struct StartView: View {
                 // Preset buttons
                 HStack(spacing: 20) {
                     PresetButton(name: "TOP OFF", gallons: 84, tanks: "17 / 25 / 25 / 17") {
-                        fuel.startFlight(.topoff)
+                        fuel.startFlight(.topoff, aircraft: .n215c)
                     }
                     
                     PresetButton(name: "TABS", gallons: 70, tanks: "17 / 18 / 18 / 17") {
-                        fuel.startFlight(.tabs)
+                        fuel.startFlight(.tabs, aircraft: .n215c)
                     }
                 }
                 .padding(.bottom, 20)
@@ -69,7 +69,7 @@ struct StartView: View {
                 // Splash panel
                 if showSplash {
                     SplashPanel(tanks: $splashTanks, total: splashTotal) {
-                        fuel.startFlight(.custom, customTanks: splashTanks)
+                        fuel.startFlight(.custom, aircraft: .n215c, customTanks: splashTanks)
                     }
                     .padding(.top, 20)
                 }
@@ -324,7 +324,7 @@ struct StartView: View {
                         "rMain": min(25, fuel.remaining("rMain") + (addAmounts["rMain"] ?? 0)),
                         "rTip": min(17, fuel.remaining("rTip") + (addAmounts["rTip"] ?? 0))
                     ]
-                    fuel.startFlight(.custom, customTanks: newTanks)
+                    fuel.startFlight(.custom, aircraft: .n215c, customTanks: newTanks)
                 }) {
                     Text("START NEW CYCLE")
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
@@ -421,11 +421,9 @@ struct StartView: View {
                 .scaleEffect(configuration.isPressed ? 0.97 : 1)
         }
     }
-    
+}
 
-    }
-    
-    #Preview {
-        StartView(fuel: FuelState())
-    }
+#Preview {
+    StartView(fuel: FuelState())
+}
 
