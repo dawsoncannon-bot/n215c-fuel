@@ -101,9 +101,9 @@ struct FlightLeg: Codable, Identifiable {
     var preset: Preset
     var fuelExhausted: Bool
     var swap2Targets: (balanced: Double, endurance: Double)?
-    var engineStartTime: Date?  // NEW: When engine was started for this leg
-    var engineStopTime: Date?   // NEW: When engine was stopped for this leg
-    var totalEngineTime: TimeInterval?  // NEW: Total engine run time for this leg
+    var engineStartTime: Date?
+    var engineStopTime: Date?
+    var totalEngineTime: TimeInterval?
     
     init(id: UUID = UUID(), legNumber: Int, startTime: Date = Date(), endTime: Date? = nil, startingFuel: [String: Double], swapLog: [SwapEntry] = [], currentTank: String = "lMain", phase: Phase = .mains, flightMode: FlightMode? = nil, preset: Preset, fuelExhausted: Bool = false, swap2Targets: (balanced: Double, endurance: Double)? = nil, engineStartTime: Date? = nil, engineStopTime: Date? = nil, totalEngineTime: TimeInterval? = nil) {
         self.id = id
@@ -145,7 +145,7 @@ struct FlightLeg: Codable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id, legNumber, startTime, endTime, startingFuel, swapLog, currentTank, phase, flightMode, preset, fuelExhausted
         case swap2TargetsBalanced, swap2TargetsEndurance
-        case engineStartTime, engineStopTime, totalEngineTime  // NEW
+        case engineStartTime, engineStopTime, totalEngineTime
     }
     
     init(from decoder: Decoder) throws {
@@ -169,7 +169,6 @@ struct FlightLeg: Codable, Identifiable {
             swap2Targets = nil
         }
         
-        // NEW: Decode timer properties
         engineStartTime = try container.decodeIfPresent(Date.self, forKey: .engineStartTime)
         engineStopTime = try container.decodeIfPresent(Date.self, forKey: .engineStopTime)
         totalEngineTime = try container.decodeIfPresent(TimeInterval.self, forKey: .totalEngineTime)
@@ -194,7 +193,6 @@ struct FlightLeg: Codable, Identifiable {
             try container.encode(targets.endurance, forKey: .swap2TargetsEndurance)
         }
         
-        // NEW: Encode timer properties
         try container.encodeIfPresent(engineStartTime, forKey: .engineStartTime)
         try container.encodeIfPresent(engineStopTime, forKey: .engineStopTime)
         try container.encodeIfPresent(totalEngineTime, forKey: .totalEngineTime)
@@ -377,7 +375,7 @@ struct SwapEntry: Codable, Identifiable {
     let tank: String
     let totalizer: Double
     let burned: Double
-    let legTime: TimeInterval?  // NEW: Time elapsed since engine start (in seconds)
+    let legTime: TimeInterval?  // Time elapsed since engine start (in seconds)
     
     init(swapNumber: Int, tank: String, totalizer: Double, burned: Double, legTime: TimeInterval? = nil) {
         self.id = UUID()
@@ -398,6 +396,22 @@ struct SwapEntry: Codable, Identifiable {
     }
 }
 
+// MARK: - Observed GPH Entry
+
+struct ObservedGPHEntry: Codable, Identifiable {
+    let id: UUID
+    let timestamp: Date
+    let legTime: TimeInterval  // Time elapsed when observation was made
+    let observedGPH: Double  // GPH value observed on aircraft instrument
+    
+    init(id: UUID = UUID(), timestamp: Date = Date(), legTime: TimeInterval, observedGPH: Double) {
+        self.id = id
+        self.timestamp = timestamp
+        self.legTime = legTime
+        self.observedGPH = observedGPH
+    }
+}
+
 @MainActor
 class FuelState: ObservableObject {
     // Constants
@@ -410,7 +424,7 @@ class FuelState: ObservableObject {
     // Published state - Trip/Leg tracking
     @Published var currentTrip: Trip?
     @Published var currentLeg: FlightLeg?
-    @Published var currentAircraft: Aircraft?  // NEW: Track which aircraft we're flying
+    @Published var currentAircraft: Aircraft?
     
     // Published state - Legacy (for backwards compatibility)
     @Published var isFlying = false
@@ -425,13 +439,17 @@ class FuelState: ObservableObject {
     @Published var flightMode: FlightMode? = nil
     @Published var swap2Targets: (balanced: Double, endurance: Double)? = nil
     
-    // NEW: Leg timer tracking
-    @Published var legTimerStart: Date?  // When engine was started for current leg
-    @Published var currentLegTime: TimeInterval = 0  // Current elapsed time in seconds
+    // Leg timer tracking
+    @Published var legTimerStart: Date?
+    @Published var currentLegTime: TimeInterval = 0
+    
+    // NEW: Observed GPH tracking
+    @Published var observedGPHLog: [ObservedGPHEntry] = []
+    @Published var predictedTimeToSwap: TimeInterval = 0  // Countdown timer in seconds
     
     private let storageKey = "n215c_fuel_state"
     private let tripStorageKey = "n215c_current_trip"
-    private let aircraftStorageKey = "n215c_current_aircraft"  // NEW
+    private let aircraftStorageKey = "n215c_current_aircraft"
     
     init() {
         load()
@@ -454,12 +472,82 @@ class FuelState: ObservableObject {
         return 1
     }
     
-    // NEW: Format current leg time as HH:MM:SS
+    // Format current leg time as HH:MM:SS
     var formattedLegTime: String {
         let hours = Int(currentLegTime) / 3600
         let minutes = (Int(currentLegTime) % 3600) / 60
         let seconds = Int(currentLegTime) % 60
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+    
+    // NEW: Calculate average GPH based on actual fuel burned and elapsed time
+    var averageGPH: Double? {
+        guard engineRunning || currentLegTime > 0,
+              let lastReading = lastReading,
+              currentLegTime > 0 else { return nil }
+        
+        let hoursElapsed = currentLegTime / 3600.0
+        return lastReading / hoursElapsed
+    }
+    
+    // NEW: Format average GPH for display
+    var formattedAverageGPH: String {
+        guard let gph = averageGPH else { return "--" }
+        return String(format: "%.1f", gph)
+    }
+    
+    // NEW: Current observed GPH (most recent entry)
+    var currentObservedGPH: Double? {
+        observedGPHLog.last?.observedGPH
+    }
+    
+    // NEW: Format countdown timer as MM:SS
+    var formattedCountdownTime: String {
+        guard predictedTimeToSwap > 0 else { return "--:--" }
+        
+        let minutes = Int(predictedTimeToSwap) / 60
+        let seconds = Int(predictedTimeToSwap) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+    
+    // NEW: Calculate how much fuel will be burned by the time we need to swap
+    // This uses the piecewise burn calculation across different GPH observations
+    func calculatePredictedBurn() -> Double? {
+        guard !observedGPHLog.isEmpty,
+              let startTime = legTimerStart else { return nil }
+        
+        let currentTime = Date().timeIntervalSince(startTime)
+        let fuelInTank = remaining(currentTank)
+        let availableFuel = fuelInTank - Self.safetyReserve
+        
+        guard availableFuel > 0 else { return 0 }
+        
+        // Calculate already burned fuel since last swap
+        let lastSwapTime = swapLog.last?.legTime ?? 0
+        var accumulatedBurn: Double = 0
+        
+        // Process each GPH observation segment
+        for (index, entry) in observedGPHLog.enumerated() {
+            // Only consider observations after last swap
+            guard entry.legTime >= lastSwapTime else { continue }
+            
+            let segmentStart = max(entry.legTime, lastSwapTime)
+            let segmentEnd: TimeInterval
+            
+            if index < observedGPHLog.count - 1 {
+                // Use next observation as end point
+                segmentEnd = observedGPHLog[index + 1].legTime
+            } else {
+                // This is the current segment - use current time
+                segmentEnd = currentTime
+            }
+            
+            let segmentDuration = segmentEnd - segmentStart
+            let segmentBurnRate = entry.observedGPH / 3600.0  // Convert GPH to gallons per second
+            accumulatedBurn += segmentBurnRate * segmentDuration
+        }
+        
+        return accumulatedBurn
     }
     
     func startFuel(_ tank: String) -> Double {
@@ -820,6 +908,8 @@ class FuelState: ObservableObject {
         // Keep engine state and flying state as-is
         // swapLog, tankBurned, currentTank, phase, totalizer - ALL PRESERVED
         
+        isFlying = true
+        engineRunning = false  // New leg will start when user hits START ENGINE
         save()
     }
     
@@ -885,7 +975,7 @@ class FuelState: ObservableObject {
         
         tankBurned[currentTank, default: 0] += burned
         
-        // NEW: Calculate leg time for this swap
+        // Calculate leg time for this swap
         let legTime: TimeInterval? = {
             guard let startTime = legTimerStart else { return nil }
             return Date().timeIntervalSince(startTime)
@@ -896,7 +986,7 @@ class FuelState: ObservableObject {
             tank: tankLabel(currentTank),
             totalizer: reading,
             burned: burned,
-            legTime: legTime  // NEW: Include leg time
+            legTime: legTime
         )
         swapLog.append(entry)
         
@@ -911,7 +1001,65 @@ class FuelState: ObservableObject {
             fuelExhausted = true
         }
         
+        // NEW: Clear observed GPH log when swapping tanks (new tank, new predictions)
+        observedGPHLog = []
+        predictedTimeToSwap = 0
+        
         save()
+    }
+    
+    // NEW: Log an observed GPH reading from aircraft instrument
+    func logObservedGPH(_ gph: Double) {
+        guard let startTime = legTimerStart else { return }
+        
+        let currentTime = Date().timeIntervalSince(startTime)
+        
+        let entry = ObservedGPHEntry(
+            legTime: currentTime,
+            observedGPH: gph
+        )
+        
+        observedGPHLog.append(entry)
+        
+        // Update countdown timer prediction
+        updateCountdownTimer()
+        
+        save()
+    }
+    
+    // NEW: Update the countdown timer based on current observed GPH
+    func updateCountdownTimer() {
+        guard let latestGPH = currentObservedGPH,
+              let startTime = legTimerStart else {
+            predictedTimeToSwap = 0
+            return
+        }
+        
+        let currentTime = Date().timeIntervalSince(startTime)
+        let fuelInTank = remaining(currentTank)
+        let availableFuel = fuelInTank - Self.safetyReserve
+        
+        guard availableFuel > 0, latestGPH > 0 else {
+            predictedTimeToSwap = 0
+            return
+        }
+        
+        // Calculate fuel already burned since last swap using piecewise GPH
+        let alreadyBurned = calculatePredictedBurn() ?? 0
+        
+        // Calculate remaining fuel to burn
+        let remainingToBurn = availableFuel - alreadyBurned
+        
+        guard remainingToBurn > 0 else {
+            predictedTimeToSwap = 0
+            return
+        }
+        
+        // Calculate time to burn remaining fuel at current GPH
+        let hoursRemaining = remainingToBurn / latestGPH
+        let secondsRemaining = hoursRemaining * 3600
+        
+        predictedTimeToSwap = secondsRemaining
     }
     
     func undoLastSwap() {
@@ -938,7 +1086,7 @@ class FuelState: ObservableObject {
         guard !fuelExhausted else {
             engineRunning = false
             
-            // NEW: Stop timer on shutdown
+            // Stop timer on shutdown
             if let startTime = legTimerStart {
                 let totalTime = Date().timeIntervalSince(startTime)
                 currentLegTime = totalTime
@@ -963,7 +1111,7 @@ class FuelState: ObservableObject {
         // Update current tank
         tankBurned[currentTank, default: 0] += burned
         
-        // NEW: Calculate final leg time
+        // Calculate final leg time
         let finalLegTime: TimeInterval? = {
             guard let startTime = legTimerStart else { return nil }
             return Date().timeIntervalSince(startTime)
@@ -975,13 +1123,13 @@ class FuelState: ObservableObject {
             tank: tankLabel(currentTank) + " (SHUTDOWN)",
             totalizer: reading,
             burned: burned,
-            legTime: finalLegTime  // NEW: Include final leg time
+            legTime: finalLegTime
         )
         swapLog.append(shutdownEntry)
         
         engineRunning = false
         
-        // NEW: Stop timer and save total engine time
+        // Stop timer and save total engine time
         if let startTime = legTimerStart {
             let totalTime = Date().timeIntervalSince(startTime)
             currentLegTime = totalTime
@@ -995,14 +1143,14 @@ class FuelState: ObservableObject {
             legTimerStart = nil
         }
         
-        endCurrentLeg()  // End leg when engine shuts down
+        endCurrentLeg()
         save()
     }
     
     func startEngine() {
         engineRunning = true
         
-        // NEW: Start leg timer
+        // Start leg timer
         if legTimerStart == nil {
             legTimerStart = Date()
             currentLegTime = 0
@@ -1020,7 +1168,7 @@ class FuelState: ObservableObject {
     func stopEngine() {
         engineRunning = false
         
-        // NEW: Stop leg timer and calculate total engine time
+        // Stop leg timer and calculate total engine time
         if let startTime = legTimerStart {
             let totalTime = Date().timeIntervalSince(startTime)
             currentLegTime = totalTime
@@ -1113,9 +1261,11 @@ class FuelState: ObservableObject {
         swap2Targets = nil
         currentTrip = nil
         currentLeg = nil
-        currentAircraft = nil  // NEW: Clear aircraft
-        legTimerStart = nil  // NEW: Clear timer
-        currentLegTime = 0  // NEW: Reset timer
+        currentAircraft = nil
+        legTimerStart = nil
+        currentLegTime = 0
+        observedGPHLog = []  // NEW: Clear observed GPH
+        predictedTimeToSwap = 0  // NEW: Clear countdown
         clearStorage()
     }
     

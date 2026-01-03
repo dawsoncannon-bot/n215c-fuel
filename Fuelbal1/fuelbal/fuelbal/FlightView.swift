@@ -14,7 +14,9 @@ struct FlightView: View {
     @FocusState private var inputFocused: Bool
     @State private var showShutdownPrompt = false
     @State private var shutdownInput = ""
-    @State private var timer: Timer?  // NEW: Timer for updating display
+    @State private var timer: Timer?
+    @State private var showGPHInput = false  // NEW: Show GPH input sheet
+    @State private var gphInput = ""  // NEW: GPH input field
     
     var body: some View {
         ScrollView {
@@ -34,9 +36,19 @@ struct FlightView: View {
                     }
                 )
                 
-                // NEW: Leg Timer Display
+                // NEW: HUD with countdown timer and average GPH
+                if fuel.engineRunning {
+                    FuelManagementHUD(
+                        fuel: fuel,
+                        onGPHInput: {
+                            showGPHInput = true
+                        }
+                    )
+                }
+                
+                // Leg Timer Display (smaller, out of the way)
                 if fuel.engineRunning || fuel.currentLegTime > 0 {
-                    LegTimerView(fuel: fuel)
+                    CompactLegTimerView(fuel: fuel)
                 }
                 
                 // Phase indicator
@@ -104,12 +116,30 @@ struct FlightView: View {
             .presentationDetents([.height(380)])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showGPHInput) {
+            GPHInputView(
+                fuel: fuel,
+                gphInput: $gphInput,
+                onCancel: {
+                    showGPHInput = false
+                    gphInput = ""
+                },
+                onConfirm: { gph in
+                    fuel.logObservedGPH(gph)
+                    showGPHInput = false
+                    gphInput = ""
+                }
+            )
+            .presentationDetents([.height(320)])
+            .presentationDragIndicator(.visible)
+        }
     }
     
     // NEW: Timer management
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             updateLegTime()
+            updateCountdown()
         }
     }
     
@@ -121,6 +151,11 @@ struct FlightView: View {
     private func updateLegTime() {
         guard fuel.engineRunning, let startTime = fuel.legTimerStart else { return }
         fuel.currentLegTime = Date().timeIntervalSince(startTime)
+    }
+    
+    private func updateCountdown() {
+        guard fuel.engineRunning else { return }
+        fuel.updateCountdownTimer()
     }
 }
 
@@ -805,7 +840,284 @@ struct HistoryView: View {
     }
 }
 
-// MARK: - Leg Timer View
+// MARK: - Fuel Management HUD
+
+struct FuelManagementHUD: View {
+    @ObservedObject var fuel: FuelState
+    let onGPHInput: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // Countdown Timer (top, most prominent)
+            if fuel.predictedTimeToSwap > 0 {
+                CountdownTimerDisplay(fuel: fuel)
+            }
+            
+            // Average GPH and Observed GPH side by side
+            HStack(spacing: 12) {
+                // Average GPH (historical data)
+                VStack(spacing: 4) {
+                    Text("AVG GPH")
+                        .font(.system(size: 9, weight: .regular, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                        .tracking(2)
+                    
+                    Text(fuel.formattedAverageGPH)
+                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                        .foregroundColor(.accentText)
+                    
+                    Text("ACTUAL BURN")
+                        .font(.system(size: 7, weight: .regular, design: .monospaced))
+                        .foregroundColor(.secondaryText.opacity(0.6))
+                        .tracking(1)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.cardBackground)
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+                
+                // Observed GPH (predictive data)
+                Button(action: onGPHInput) {
+                    VStack(spacing: 4) {
+                        Text("OBSERVED")
+                            .font(.system(size: 9, weight: .regular, design: .monospaced))
+                            .foregroundColor(.secondaryText)
+                            .tracking(2)
+                        
+                        if let observedGPH = fuel.currentObservedGPH {
+                            Text(String(format: "%.1f", observedGPH))
+                                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                .foregroundColor(.fuelActive)
+                        } else {
+                            Text("TAP")
+                                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                .foregroundColor(.gray)
+                        }
+                        
+                        Text("INSTRUMENT")
+                            .font(.system(size: 7, weight: .regular, design: .monospaced))
+                            .foregroundColor(.secondaryText.opacity(0.6))
+                            .tracking(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.cardBackground)
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(fuel.currentObservedGPH != nil ? Color.fuelActive.opacity(0.3) : Color.white.opacity(0.1), lineWidth: fuel.currentObservedGPH != nil ? 2 : 1)
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+    }
+}
+
+// MARK: - Countdown Timer Display
+
+struct CountdownTimerDisplay: View {
+    @ObservedObject var fuel: FuelState
+    
+    var isUrgent: Bool {
+        fuel.predictedTimeToSwap > 0 && fuel.predictedTimeToSwap < 300  // Less than 5 minutes
+    }
+    
+    var displayColor: Color {
+        if fuel.predictedTimeToSwap <= 0 {
+            return .fuelLow
+        } else if isUrgent {
+            return .orange
+        } else {
+            return .fuelActive
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: isUrgent ? "exclamationmark.triangle.fill" : "timer")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(displayColor)
+                
+                Text("TIME TO SWAP")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+                    .tracking(2)
+            }
+            
+            Text(fuel.formattedCountdownTime)
+                .font(.system(size: 48, weight: .bold, design: .monospaced))
+                .foregroundColor(displayColor)
+                .monospacedDigit()
+            
+            if isUrgent {
+                Text("⚠️ PREPARE TO SWAP")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(.orange)
+                    .tracking(1)
+            } else {
+                Text("Based on observed GPH")
+                    .font(.system(size: 8, weight: .regular, design: .monospaced))
+                    .foregroundColor(.secondaryText.opacity(0.6))
+                    .tracking(1)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(isUrgent ? Color.orange.opacity(0.1) : Color.cardBackground)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(displayColor.opacity(0.5), lineWidth: isUrgent ? 3 : 2)
+        )
+    }
+}
+
+// MARK: - Compact Leg Timer View
+
+struct CompactLegTimerView: View {
+    @ObservedObject var fuel: FuelState
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "clock")
+                .font(.system(size: 10, weight: .regular))
+                .foregroundColor(.secondaryText.opacity(0.6))
+            
+            Text("LEG TIME:")
+                .font(.system(size: 9, weight: .regular, design: .monospaced))
+                .foregroundColor(.secondaryText.opacity(0.6))
+                .tracking(1)
+            
+            Text(fuel.formattedLegTime)
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundColor(fuel.engineRunning ? .secondaryText : .secondaryText.opacity(0.5))
+                .monospacedDigit()
+            
+            if !fuel.engineRunning && fuel.currentLegTime > 0 {
+                Image(systemName: "pause.circle.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondaryText.opacity(0.5))
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.black.opacity(0.2))
+        .cornerRadius(6)
+    }
+}
+
+// MARK: - GPH Input View
+
+struct GPHInputView: View {
+    @ObservedObject var fuel: FuelState
+    @Binding var gphInput: String
+    let onCancel: () -> Void
+    let onConfirm: (Double) -> Void
+    
+    @State private var error = ""
+    @FocusState private var focused: Bool
+    
+    var isValid: Bool {
+        guard let gph = Double(gphInput) else { return false }
+        return gph > 0 && gph < 100  // Reasonable GPH range
+    }
+    
+    var body: some View {
+        ZStack {
+            Color.appBackground.ignoresSafeArea()
+            
+            VStack(spacing: 20) {
+                Text("OBSERVED GPH")
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .tracking(3)
+                    .padding(.top, 20)
+                
+                VStack(spacing: 8) {
+                    Text("Enter current GPH from instrument")
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundColor(.secondaryText)
+                    
+                    if let currentGPH = fuel.currentObservedGPH {
+                        Text("Current: \(String(format: "%.1f", currentGPH)) GPH")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.fuelActive)
+                    }
+                }
+                
+                TextField("0.0", text: $gphInput)
+                    .font(.system(size: 36, weight: .bold, design: .monospaced))
+                    .foregroundColor(.primaryText)
+                    .multilineTextAlignment(.center)
+                    .keyboardType(.decimalPad)
+                    .focused($focused)
+                    .frame(width: 200, height: 70)
+                    .background(Color.black.opacity(0.3))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(error.isEmpty ? (focused ? .fuelActive : Color.white.opacity(0.15)) : .fuelLow, lineWidth: 2)
+                    )
+                    .onChange(of: gphInput) {
+                        validateInput()
+                    }
+                
+                Text(error)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.fuelLow)
+                    .frame(height: 14)
+                
+                HStack(spacing: 16) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.secondaryText)
+                    .frame(width: 120, height: 44)
+                    .background(Color.buttonDisabled)
+                    .cornerRadius(8)
+                    
+                    Button("Log GPH") {
+                        if let gph = Double(gphInput), isValid {
+                            onConfirm(gph)
+                        }
+                    }
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.black)
+                    .frame(width: 120, height: 44)
+                    .background(isValid ? Color.fuelActive : Color.buttonDisabled)
+                    .cornerRadius(8)
+                    .disabled(!isValid)
+                }
+                .padding(.top, 10)
+                
+                Spacer()
+            }
+            .padding()
+        }
+        .onAppear {
+            focused = true
+        }
+    }
+    
+    func validateInput() {
+        error = ""
+        guard let gph = Double(gphInput) else { return }
+        if gph <= 0 {
+            error = "Must be greater than 0"
+        } else if gph >= 100 {
+            error = "Must be less than 100"
+        }
+    }
+}
+
+// MARK: - Leg Timer View (kept for reference, now using compact version)
 
 struct LegTimerView: View {
     @ObservedObject var fuel: FuelState
