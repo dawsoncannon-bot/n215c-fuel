@@ -166,6 +166,17 @@ struct HeaderView: View {
     let onExit: () -> Void
     let onEngineToggle: () -> Void
     
+    // Format leg timestamp as "MMM d HH:mm"
+    var formattedLegTimestamp: String {
+        guard let timestamp = fuel.currentLegTimestamp else {
+            return fuel.preset.rawValue
+        }
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d HH:mm"
+        return "LEG \(formatter.string(from: timestamp))"
+    }
+    
     var body: some View {
         HStack {
             // Back button (only active when engine off)
@@ -191,7 +202,7 @@ struct HeaderView: View {
             
             // Center info
             VStack(spacing: 4) {
-                Text("CYCLE #\(fuel.burnCycleNumber) • \(fuel.preset.rawValue)")
+                Text("CYCLE #\(fuel.burnCycleNumber) • \(formattedLegTimestamp)")
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
                     .foregroundColor(.secondaryText)
                     .tracking(2)
@@ -805,29 +816,56 @@ struct HistoryView: View {
                 .background(Color.white.opacity(0.2))
             
             ForEach(fuel.swapLog.suffix(4).reversed()) { entry in
-                HStack(spacing: 8) {
-                    Text("#\(entry.swapNumber)")
-                        .foregroundColor(.secondaryText)
-                        .frame(width: 20, alignment: .leading)
-                    
-                    Text(entry.tank)
-                        .foregroundColor(.secondaryText)
+                VStack(spacing: 2) {
+                    // Main row with swap data
+                    HStack(spacing: 8) {
+                        Text("#\(entry.swapNumber)")
+                            .foregroundColor(.secondaryText)
+                            .frame(width: 20, alignment: .leading)
+                        
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(entry.tank)
+                                .foregroundColor(.secondaryText)
+                            
+                            // GPH indicator if present
+                            if let gph = entry.observedGPH {
+                                Text("GPH: \(String(format: "%.1f", gph))")
+                                    .font(.system(size: 7, design: .monospaced))
+                                    .foregroundColor(.blue.opacity(0.8))
+                            }
+                            
+                            // Shutdown indicator
+                            if entry.isShutdown {
+                                Text("SHUTDOWN")
+                                    .font(.system(size: 7, design: .monospaced))
+                                    .foregroundColor(.red.opacity(0.8))
+                            }
+                        }
                         .frame(width: 65, alignment: .leading)
-                    
-                    Text(entry.formattedLegTime)
-                        .foregroundColor(.fuelActive)
+                        
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text(entry.formattedLegTime)
+                                .foregroundColor(.fuelActive)
+                            
+                            // Time of day (smaller, passive)
+                            Text(entry.formattedTimeOfDay)
+                                .font(.system(size: 7, design: .monospaced))
+                                .foregroundColor(.secondaryText.opacity(0.5))
+                        }
                         .frame(width: 70, alignment: .trailing)
-                    
-                    Text(String(format: "%.1f", entry.totalizer))
-                        .foregroundColor(.secondaryText)
-                        .frame(width: 45, alignment: .trailing)
-                    
-                    Text(String(format: "+%.1f", entry.burned))
-                        .foregroundColor(.accentText)
-                        .frame(width: 40, alignment: .trailing)
+                        
+                        Text(String(format: "%.1f", entry.totalizer))
+                            .foregroundColor(.secondaryText)
+                            .frame(width: 45, alignment: .trailing)
+                        
+                        Text(entry.burned > 0 ? String(format: "+%.1f", entry.burned) : "--")
+                            .foregroundColor(entry.burned > 0 ? .accentText : .secondaryText.opacity(0.5))
+                            .frame(width: 40, alignment: .trailing)
+                    }
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 4)
                 }
-                .font(.system(size: 11, weight: .regular, design: .monospaced))
-                .padding(.horizontal, 4)
             }
         }
         .padding(12)

@@ -380,16 +380,18 @@ struct SwapEntry: Codable, Identifiable {
     let totalizer: Double
     let burned: Double
     let legTime: TimeInterval?  // Time elapsed since engine start (in seconds)
+    let timestamp: Date  // Time of day when this entry was created
     let isShutdown: Bool  // NEW: True if this is a shutdown event
     let observedGPH: Double?  // NEW: If user updated GPH during this entry
     
-    init(swapNumber: Int, tank: String, totalizer: Double, burned: Double, legTime: TimeInterval? = nil, isShutdown: Bool = false, observedGPH: Double? = nil) {
+    init(swapNumber: Int, tank: String, totalizer: Double, burned: Double, legTime: TimeInterval? = nil, timestamp: Date = Date(), isShutdown: Bool = false, observedGPH: Double? = nil) {
         self.id = UUID()
         self.swapNumber = swapNumber
         self.tank = tank
         self.totalizer = totalizer
         self.burned = burned
         self.legTime = legTime
+        self.timestamp = timestamp
         self.isShutdown = isShutdown
         self.observedGPH = observedGPH
     }
@@ -401,6 +403,13 @@ struct SwapEntry: Codable, Identifiable {
         let minutes = (Int(time) % 3600) / 60
         let seconds = Int(time) % 60
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+    
+    // Format timestamp as HH:mm (time of day)
+    var formattedTimeOfDay: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: timestamp)
     }
 }
 
@@ -1228,7 +1237,7 @@ class FuelState: ObservableObject {
         save()
     }
     
-    func endTrip() {
+    func endLeg() {
         // Finalize current leg if active
         if currentLeg != nil {
             endCurrentLeg()

@@ -236,7 +236,7 @@ struct FuelOptionsView: View {
                         
                         // End Trip button
                         Button(action: {
-                            fuel.endTrip()
+                            fuel.endLeg()
                         }) {
                             Text("END TRIP")
                                 .font(.system(size: 10, weight: .medium, design: .monospaced))
