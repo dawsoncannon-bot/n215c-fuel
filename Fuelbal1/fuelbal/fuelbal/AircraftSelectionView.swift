@@ -58,7 +58,7 @@ struct AircraftSelectionView: View {
                     AircraftCard(
                         aircraft: Aircraft.n215c,
                         hasSavedState: hasSavedState,
-                        legNumber: fuel.legNumber,
+                        burnCycleNumber: fuel.burnCycleNumber,
                         fuel: fuel
                     )
                 }
@@ -132,7 +132,7 @@ struct AircraftSelectionView: View {
 struct AircraftCard: View {
     let aircraft: Aircraft
     let hasSavedState: Bool
-    let legNumber: Int?
+    let burnCycleNumber: Int?
     let fuel: FuelState?
     
     var body: some View {
@@ -144,8 +144,8 @@ struct AircraftCard: View {
                 
                 Spacer()
                 
-                if hasSavedState, let legNum = legNumber {
-                    Text("LEG #\(legNum)")
+                if hasSavedState, let cycleNum = burnCycleNumber {
+                    Text("CYCLE #\(cycleNum)")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .foregroundColor(.fuelActive)
                         .tracking(1)
@@ -331,7 +331,7 @@ struct CustomAircraftCardWithSwipe: View {
                 AircraftCard(
                     aircraft: aircraft,
                     hasSavedState: false,
-                    legNumber: nil,
+                    burnCycleNumber: nil,
                     fuel: nil
                 )
             }

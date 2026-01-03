@@ -25,7 +25,7 @@ struct FlightView: View {
                 HeaderView(
                     fuel: fuel,
                     onExit: {
-                        fuel.isFlying = false
+                        fuel.showFlightView = false
                     },
                     onEngineToggle: {
                         if fuel.engineRunning {
@@ -191,7 +191,7 @@ struct HeaderView: View {
             
             // Center info
             VStack(spacing: 4) {
-                Text("LEG #\(fuel.legNumber) • \(fuel.preset.rawValue)")
+                Text("CYCLE #\(fuel.burnCycleNumber) • \(fuel.preset.rawValue)")
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
                     .foregroundColor(.secondaryText)
                     .tracking(2)

@@ -5,7 +5,7 @@ struct ContentView: View {
     
     var body: some View {
         Group {
-            if fuel.isFlying {
+            if fuel.showFlightView {
                 FlightView(fuel: fuel)
             } else {
                 AircraftSelectionView(fuel: fuel)

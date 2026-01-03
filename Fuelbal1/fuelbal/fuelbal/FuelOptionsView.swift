@@ -38,7 +38,7 @@ struct FuelOptionsView: View {
     }
 
     var savedSwapInfo: String {
-        return "Leg #\(fuel.legNumber) • Swap #\(fuel.swapLog.count + 1)"
+        return "Leg #\(fuel.burnCycleNumber) • Swap #\(fuel.swapLog.count + 1)"
     }
 
     var savedFuelLevels: [TankPosition: Double] {

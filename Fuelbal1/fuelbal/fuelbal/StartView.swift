@@ -101,7 +101,7 @@ struct StartView: View {
                 if !showAddFuel {
                     HStack(spacing: 10) {
                         Button("RESUME") {
-                            fuel.isFlying = true
+                            fuel.showFlightView = true
                         }
                         .buttonStyle(ResumeButtonStyle(isPrimary: true))
                         
